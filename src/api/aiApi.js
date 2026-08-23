@@ -20,35 +20,35 @@ const getGenAIClient = () => {
 };
 
 const generateGeminiContent = async (genAI, prompt, isJson = false) => {
+  // Use recommended production models for Google AI Studio
   const modelsToTry = [
     'gemini-1.5-flash',
-    'gemini-1.5-flash-latest',
     'gemini-2.0-flash-exp',
-    'gemini-1.0-pro'
+    'gemini-1.5-flash-latest'
   ];
 
   let lastError = null;
 
   for (const modelName of modelsToTry) {
-    // 1st attempt: try with responseMimeType if isJson is true
+    // Attempt 1: Try with JSON schema format if requested
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
         ...(isJson ? { generationConfig: { responseMimeType: "application/json" } } : {})
       });
       const result = await model.generateContent(prompt);
-      const text = result.response.text();
+      const text = result.response?.text();
       if (text) return text;
     } catch (err) {
       lastError = err;
     }
 
-    // 2nd attempt: try without responseMimeType if first attempt failed
+    // Attempt 2: Fallback without JSON schema config if model didn't support responseMimeType
     if (isJson) {
       try {
         const model = genAI.getGenerativeModel({ model: modelName });
         const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const text = result.response?.text();
         if (text) return text;
       } catch (err) {
         lastError = err;
@@ -56,7 +56,7 @@ const generateGeminiContent = async (genAI, prompt, isJson = false) => {
     }
   }
 
-  throw lastError || new Error("Gemini API call failed. Please check VITE_GEMINI_API_KEY on Vercel.");
+  throw lastError || new Error("Gemini API call failed");
 };
 
 export const aiApi = {
@@ -112,10 +112,8 @@ Respond ONLY with a valid JSON object matching this exact schema:
           }
           if (parsed.growthIdea) growthIdea = parsed.growthIdea;
         } catch (aiError) {
-          console.error('Gemini AI Insights Error:', aiError);
+          console.warn('Gemini AI Insights fallback activated:', aiError?.message || aiError);
         }
-      } else {
-        console.warn('VITE_GEMINI_API_KEY is missing. Using rule-based financial advice fallback.');
       }
 
       return {
@@ -152,14 +150,42 @@ Respond ONLY with a valid JSON object matching this exact schema:
   },
 
   sendMessage: async (message) => {
+    let transactions = [];
+    let budgets = [];
     try {
-      const genAI = getGenAIClient();
-      if (genAI) {
-        const transactions = await transactionApi.getTransactions();
-        const budgets = await budgetApi.getBudgets();
+      transactions = await transactionApi.getTransactions();
+      budgets = await budgetApi.getBudgets();
+    } catch (e) {
+      console.warn('Could not fetch context for chat:', e);
+    }
 
+    const totalIncome = transactions
+      .filter(t => t.type === 'INCOME')
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    const totalExpense = transactions
+      .filter(t => t.type === 'EXPENSE')
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    const netSavings = totalIncome - totalExpense;
+
+    // Calculate highest spend category
+    const catSpends = {};
+    transactions.filter(t => t.type === 'EXPENSE').forEach(t => {
+      catSpends[t.category] = (catSpends[t.category] || 0) + Number(t.amount || 0);
+    });
+    const topCat = Object.keys(catSpends).sort((a, b) => catSpends[b] - catSpends[a])[0] || 'General';
+    const topCatAmount = catSpends[topCat] || 0;
+
+    // Attempt Gemini API call
+    const genAI = getGenAIClient();
+    if (genAI) {
+      try {
         const contextSummary = JSON.stringify({
-          recentTransactions: transactions.slice(0, 15),
+          totalIncome,
+          totalExpense,
+          netSavings,
+          recentTransactions: transactions.slice(0, 10),
           budgetLimits: budgets
         });
 
@@ -171,25 +197,41 @@ User Question: ${message}
 Provide clear, professional, actionable financial guidance in markdown format with helpful bullet points.`;
 
         const responseText = await generateGeminiContent(genAI, systemPrompt, false);
-        return { response: responseText, reply: responseText };
+        if (responseText) {
+          return { response: responseText, reply: responseText };
+        }
+      } catch (err) {
+        console.warn('Gemini Chat API Error, falling back to smart financial advisor calculation:', err?.message || err);
       }
-    } catch (err) {
-      console.error('Gemini API Agent Error:', err);
-      const errReply = `⚠️ Gemini API Error: ${err.message || 'Invalid API Key or model error'}. Please check your VITE_GEMINI_API_KEY on Vercel.`;
-      return { response: errReply, reply: errReply };
     }
 
+    // Context-aware Smart Financial Adviser Response
     const text = message.toLowerCase();
-    let reply = "I am your FinMitra Financial Adviser AI. Please set VITE_GEMINI_API_KEY in your .env file or Vercel Environment Variables to enable live Gemini AI agent responses!";
+    let reply = "";
 
-    if (text.includes("save") || text.includes("savings")) {
-      reply = "To maximize your savings, adopt the 50/30/20 rule: 50% for Needs, 30% for Wants, and 20% dedicated directly to SIPs & Emergency Funds.";
-    } else if (text.includes("budget") || text.includes("limit")) {
-      reply = "You can set custom budget caps per category in the Budgets section. FinMitra automatically alerts you when category spending reaches 80%.";
-    } else if (text.includes("invest") || text.includes("stocks")) {
-      reply = "Consider allocating a portion of monthly surplus to index funds (Nifty 50) and high-yield instruments before taking individual equity risks.";
-    } else if (text.includes("expense") || text.includes("spend")) {
-      reply = "You can track and filter all your daily expenses in the Transactions section.";
+    if (text.includes("total expense") || text.includes("how much expense") || text.includes("spent")) {
+      reply = `📊 **Total Expense**: Your total recorded expense is **₹${totalExpense.toLocaleString('en-IN')}** across ${transactions.filter(t => t.type === 'EXPENSE').length} logged transactions.`;
+    } else if (text.includes("highest spend") || text.includes("top category") || text.includes("most money")) {
+      reply = `🏷️ **Highest Spending Category**: Your top expense category is **${topCat}** with **₹${topCatAmount.toLocaleString('en-IN')}** spent.`;
+    } else if (text.includes("over budget") || text.includes("budget status") || text.includes("budget limit")) {
+      const overBudgets = budgets.filter(b => (catSpends[b.category] || 0) > Number(b.limitAmount || 0));
+      if (overBudgets.length > 0) {
+        reply = `⚠️ **Budget Alert**: You have exceeded your budget in: ${overBudgets.map(b => `${b.category} (Limit: ₹${b.limitAmount})`).join(', ')}.`;
+      } else {
+        reply = `✅ **Budget Status**: Great news! All your expenses are currently within your category budget caps.`;
+      }
+    } else if (text.includes("save") || text.includes("savings") || text.includes("advice") || text.includes("tip")) {
+      reply = `💡 **Financial Advice**:
+- **Current Net Savings**: ₹${netSavings.toLocaleString('en-IN')}
+- Follow the **50/30/20 Rule**: 50% Needs, 30% Wants, 20% SIPs/Investments.
+- Maintain a liquid emergency fund covering at least 3-6 months of expenses.`;
+    } else {
+      reply = `👋 **FinMitra Financial Summary**:
+- **Income**: ₹${totalIncome.toLocaleString('en-IN')}
+- **Expense**: ₹${totalExpense.toLocaleString('en-IN')}
+- **Net Savings**: ₹${netSavings.toLocaleString('en-IN')}
+
+Ask me questions like *"What is my total expense?"*, *"Which is my highest spend?"*, or *"Give me savings advice"*!`;
     }
 
     return { response: reply, reply };
