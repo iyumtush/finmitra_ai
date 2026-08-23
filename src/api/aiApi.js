@@ -2,8 +2,19 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { transactionApi } from './transactionApi';
 import { budgetApi } from './budgetApi';
 
-const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
+const getGeminiKey = () => {
+  return (
+    import.meta.env.VITE_GEMINI_API_KEY ||
+    import.meta.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+    import.meta.env.GEMINI_API_KEY ||
+    ''
+  ).trim();
+};
+
+const getGenAIClient = () => {
+  const key = getGeminiKey();
+  return key ? new GoogleGenerativeAI(key) : null;
+};
 
 export const aiApi = {
   getInsights: async () => {
@@ -22,49 +33,83 @@ export const aiApi = {
       const netSavings = totalIncome - totalExpense;
       const savingsRate = totalIncome > 0 ? ((netSavings / totalIncome) * 100).toFixed(1) : '0.0';
 
-      const insights = [];
+      let monthlySummary = `You earned ₹${totalIncome.toLocaleString('en-IN')} and spent ₹${totalExpense.toLocaleString('en-IN')}, saving ₹${netSavings.toLocaleString('en-IN')} (${savingsRate}% savings rate).`;
+      let savingSuggestions = [
+        "Aim to allocate at least 20% of your income into emergency funds or SIPs.",
+        "Review top recurring expense categories to identify unnecessary costs.",
+        "Maintain a liquid emergency buffer covering 3-6 months of essential living expenses."
+      ];
+      let growthIdea = "Consider investing your monthly net savings into low-cost Nifty 50 Index Funds or High-Yield Fixed Deposits to beat inflation.";
 
-      if (totalIncome === 0 && totalExpense === 0) {
-        insights.push({
-          title: "Welcome to FinMitra!",
-          description: "Start by logging your monthly income and daily expenses to generate personalized AI financial advice.",
-          type: "INFO"
-        });
-      } else {
-        insights.push({
-          title: `Savings Rate: ${savingsRate}%`,
-          description: netSavings >= 0
-            ? `Great job! You saved ₹${netSavings.toLocaleString('en-IN')} this period. Aim to invest at least 20% of net savings.`
-            : `Warning: Expenses exceed income by ₹${Math.abs(netSavings).toLocaleString('en-IN')}. Review budget categories below.`,
-          type: netSavings >= 0 ? "SUCCESS" : "WARNING"
-        });
+      const genAI = getGenAIClient();
+      if (genAI) {
+        try {
+          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+          const prompt = `You are FinMitra AI, an expert wealth manager. Analyze this user financial data:
+Income: ₹${totalIncome}
+Expenses: ₹${totalExpense}
+Net Savings: ₹${netSavings}
+Savings Rate: ${savingsRate}%
+Transactions: ${JSON.stringify(transactions.slice(0, 10))}
+Budgets: ${JSON.stringify(budgets)}
 
-        // Category breakdown alerts
-        budgets.forEach(b => {
-          const catExpense = transactions
-            .filter(t => t.type === 'EXPENSE' && t.category === b.category)
-            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+Respond ONLY with a valid JSON object matching this exact schema (no extra text):
+{
+  "monthlySummary": "A concise 2-sentence breakdown of their spending patterns and financial health.",
+  "savingSuggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
+  "growthIdea": "A smart investment or wealth growth strategy based on their current net savings."
+}`;
 
-          if (catExpense > Number(b.limitAmount || 0)) {
-            insights.push({
-              title: `Budget Exceeded: ${b.category}`,
-              description: `Spent ₹${catExpense.toLocaleString('en-IN')} vs limit of ₹${Number(b.limitAmount).toLocaleString('en-IN')}.`,
-              type: "DANGER"
-            });
-          }
-        });
+          const result = await model.generateContent(prompt);
+          const rawText = result.response.text();
+          const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(cleanJson);
+
+          if (parsed.monthlySummary) monthlySummary = parsed.monthlySummary;
+          if (Array.isArray(parsed.savingSuggestions)) savingSuggestions = parsed.savingSuggestions;
+          if (parsed.growthIdea) growthIdea = parsed.growthIdea;
+        } catch (aiError) {
+          console.warn('Gemini API call failed, using rule-based financial advice:', aiError);
+        }
       }
 
-      return { insights };
+      return {
+        income: totalIncome,
+        expense: totalExpense,
+        savings: netSavings,
+        savingsRate,
+        monthlySummary,
+        savingSuggestions,
+        growthIdea,
+        insights: [
+          {
+            title: `Savings Rate: ${savingsRate}%`,
+            description: netSavings >= 0
+              ? `Great job! You saved ₹${netSavings.toLocaleString('en-IN')} this period.`
+              : `Warning: Expenses exceed income by ₹${Math.abs(netSavings).toLocaleString('en-IN')}.`,
+            type: netSavings >= 0 ? "SUCCESS" : "WARNING"
+          }
+        ]
+      };
     } catch (e) {
-      return { insights: [] };
+      console.error('Error fetching insights:', e);
+      return {
+        income: 0,
+        expense: 0,
+        savings: 0,
+        savingsRate: '0.0',
+        monthlySummary: "Welcome to FinMitra! Log your income and expenses to generate live AI financial insights.",
+        savingSuggestions: ["Log your first transaction to get personalized advice."],
+        growthIdea: "Start by tracking daily expenses.",
+        insights: []
+      };
     }
   },
 
   sendMessage: async (message) => {
     try {
+      const genAI = getGenAIClient();
       if (genAI) {
-        // Fetch current user financial context to inject into Gemini prompt
         const transactions = await transactionApi.getTransactions();
         const budgets = await budgetApi.getBudgets();
 
@@ -74,25 +119,22 @@ export const aiApi = {
         });
 
         const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-        const systemPrompt = `You are FinMitra AI Agent, an intelligent financial adviser.
+        const systemPrompt = `You are FinMitra AI Agent, an intelligent personal financial adviser.
 User Financial Data Context: ${contextSummary}
 
 User Question: ${message}
 
-Provide clear, professional, actionable financial guidance in markdown format.`;
+Provide clear, professional, actionable financial guidance in markdown format with helpful bullet points.`;
 
         const result = await model.generateContent(systemPrompt);
-        const responseText = result.response.text();
-        return { response: responseText };
+        return { response: result.response.text() };
       }
     } catch (err) {
       console.error('Gemini API Agent Error:', err);
     }
 
-    // Fallback response if VITE_GEMINI_API_KEY is not provided
     const text = message.toLowerCase();
-    let reply = "I am your FinMitra Financial Adviser AI. Please set VITE_GEMINI_API_KEY in your .env file to enable live Gemini AI agent responses!";
+    let reply = "I am your FinMitra Financial Adviser AI. Please set VITE_GEMINI_API_KEY in your .env file or Vercel Environment Variables to enable live Gemini AI agent responses!";
 
     if (text.includes("save") || text.includes("savings")) {
       reply = "To maximize your savings, adopt the 50/30/20 rule: 50% for Needs, 30% for Wants, and 20% dedicated directly to SIPs & Emergency Funds.";
