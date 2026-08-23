@@ -39,9 +39,10 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
 
     try {
       const response = await aiApi.sendMessage(query);
+      const replyText = typeof response === 'string' ? response : (response?.reply || response?.response || response?.text || '');
       const aiMessage = {
         sender: 'ai',
-        text: response.reply,
+        text: replyText || "I am analyzing your finances. Feel free to ask about your transactions or savings!",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, aiMessage]);

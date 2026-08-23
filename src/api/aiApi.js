@@ -150,10 +150,12 @@ User Question: ${message}
 Provide clear, professional, actionable financial guidance in markdown format with helpful bullet points.`;
 
         const responseText = await generateGeminiContent(genAI, systemPrompt, false);
-        return { response: responseText };
+        return { response: responseText, reply: responseText };
       }
     } catch (err) {
       console.error('Gemini API Agent Error:', err);
+      const errReply = `⚠️ Gemini API Error: ${err.message || 'Invalid API Key or API error'}. Please verify VITE_GEMINI_API_KEY on Vercel.`;
+      return { response: errReply, reply: errReply };
     }
 
     const text = message.toLowerCase();
@@ -165,8 +167,10 @@ Provide clear, professional, actionable financial guidance in markdown format wi
       reply = "You can set custom budget caps per category in the Budgets section. FinMitra automatically alerts you when category spending reaches 80%.";
     } else if (text.includes("invest") || text.includes("stocks")) {
       reply = "Consider allocating a portion of monthly surplus to index funds (Nifty 50) and high-yield instruments before taking individual equity risks.";
+    } else if (text.includes("expense") || text.includes("spend")) {
+      reply = "You can track and filter all your daily expenses in the Transactions section.";
     }
 
-    return { response: reply };
+    return { response: reply, reply };
   }
 };
