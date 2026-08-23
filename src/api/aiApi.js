@@ -16,6 +16,28 @@ const getGenAIClient = () => {
   return key ? new GoogleGenerativeAI(key) : null;
 };
 
+const generateGeminiContent = async (genAI, prompt, isJson = false) => {
+  const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-pro'];
+  let lastError = null;
+
+  for (const modelName of modelsToTry) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: isJson ? { responseMimeType: "application/json" } : {}
+      });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      if (text) return text;
+    } catch (err) {
+      lastError = err;
+      console.warn(`Gemini model ${modelName} call failed, trying fallback:`, err?.message || err);
+    }
+  }
+
+  throw lastError || new Error("All Gemini models failed");
+};
+
 export const aiApi = {
   getInsights: async () => {
     try {
@@ -44,33 +66,35 @@ export const aiApi = {
       const genAI = getGenAIClient();
       if (genAI) {
         try {
-          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
           const prompt = `You are FinMitra AI, an expert wealth manager. Analyze this user financial data:
 Income: ₹${totalIncome}
 Expenses: ₹${totalExpense}
 Net Savings: ₹${netSavings}
 Savings Rate: ${savingsRate}%
-Transactions: ${JSON.stringify(transactions.slice(0, 10))}
+Recent Transactions: ${JSON.stringify(transactions.slice(0, 10))}
 Budgets: ${JSON.stringify(budgets)}
 
-Respond ONLY with a valid JSON object matching this exact schema (no extra text):
+Respond ONLY with a valid JSON object matching this exact schema:
 {
   "monthlySummary": "A concise 2-sentence breakdown of their spending patterns and financial health.",
   "savingSuggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
   "growthIdea": "A smart investment or wealth growth strategy based on their current net savings."
 }`;
 
-          const result = await model.generateContent(prompt);
-          const rawText = result.response.text();
+          const rawText = await generateGeminiContent(genAI, prompt, true);
           const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleanJson);
 
           if (parsed.monthlySummary) monthlySummary = parsed.monthlySummary;
-          if (Array.isArray(parsed.savingSuggestions)) savingSuggestions = parsed.savingSuggestions;
+          if (Array.isArray(parsed.savingSuggestions) && parsed.savingSuggestions.length > 0) {
+            savingSuggestions = parsed.savingSuggestions;
+          }
           if (parsed.growthIdea) growthIdea = parsed.growthIdea;
         } catch (aiError) {
-          console.warn('Gemini API call failed, using rule-based financial advice:', aiError);
+          console.error('Gemini AI Insights Error:', aiError);
         }
+      } else {
+        console.warn('VITE_GEMINI_API_KEY is missing. Using rule-based financial advice fallback.');
       }
 
       return {
@@ -118,7 +142,6 @@ Respond ONLY with a valid JSON object matching this exact schema (no extra text)
           budgetLimits: budgets
         });
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
         const systemPrompt = `You are FinMitra AI Agent, an intelligent personal financial adviser.
 User Financial Data Context: ${contextSummary}
 
@@ -126,8 +149,8 @@ User Question: ${message}
 
 Provide clear, professional, actionable financial guidance in markdown format with helpful bullet points.`;
 
-        const result = await model.generateContent(systemPrompt);
-        return { response: result.response.text() };
+        const responseText = await generateGeminiContent(genAI, systemPrompt, false);
+        return { response: responseText };
       }
     } catch (err) {
       console.error('Gemini API Agent Error:', err);
