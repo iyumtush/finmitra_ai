@@ -3,12 +3,15 @@ import { transactionApi } from './transactionApi';
 import { budgetApi } from './budgetApi';
 
 const getGeminiKey = () => {
-  return (
+  const raw = (
     import.meta.env.VITE_GEMINI_API_KEY ||
     import.meta.env.NEXT_PUBLIC_GEMINI_API_KEY ||
     import.meta.env.GEMINI_API_KEY ||
     ''
   ).trim();
+
+  // Strip wrapping quotes if user typed "AIzaSy..." in Vercel settings
+  return raw.replace(/^["']|["']$/g, '').trim();
 };
 
 const getGenAIClient = () => {
@@ -17,25 +20,43 @@ const getGenAIClient = () => {
 };
 
 const generateGeminiContent = async (genAI, prompt, isJson = false) => {
-  const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-pro'];
+  const modelsToTry = [
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-2.0-flash-exp',
+    'gemini-1.0-pro'
+  ];
+
   let lastError = null;
 
   for (const modelName of modelsToTry) {
+    // 1st attempt: try with responseMimeType if isJson is true
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
-        generationConfig: isJson ? { responseMimeType: "application/json" } : {}
+        ...(isJson ? { generationConfig: { responseMimeType: "application/json" } } : {})
       });
       const result = await model.generateContent(prompt);
       const text = result.response.text();
       if (text) return text;
     } catch (err) {
       lastError = err;
-      console.warn(`Gemini model ${modelName} call failed, trying fallback:`, err?.message || err);
+    }
+
+    // 2nd attempt: try without responseMimeType if first attempt failed
+    if (isJson) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        if (text) return text;
+      } catch (err) {
+        lastError = err;
+      }
     }
   }
 
-  throw lastError || new Error("All Gemini models failed");
+  throw lastError || new Error("Gemini API call failed. Please check VITE_GEMINI_API_KEY on Vercel.");
 };
 
 export const aiApi = {
@@ -154,7 +175,7 @@ Provide clear, professional, actionable financial guidance in markdown format wi
       }
     } catch (err) {
       console.error('Gemini API Agent Error:', err);
-      const errReply = `⚠️ Gemini API Error: ${err.message || 'Invalid API Key or API error'}. Please verify VITE_GEMINI_API_KEY on Vercel.`;
+      const errReply = `⚠️ Gemini API Error: ${err.message || 'Invalid API Key or model error'}. Please check your VITE_GEMINI_API_KEY on Vercel.`;
       return { response: errReply, reply: errReply };
     }
 
