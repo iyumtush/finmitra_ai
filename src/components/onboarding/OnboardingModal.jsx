@@ -81,7 +81,7 @@ export default function OnboardingModal({ user, onComplete }) {
         {/* Header Badge */}
         <div className="onboarding-header">
           <div className="onboarding-badge">
-            <Sparkles size={16} color="var(--accent-green)" />
+            <Sparkles size={16} />
             <span>Welcome to finMitra</span>
           </div>
           <h2 className="onboarding-title">Let's set up your finances</h2>
@@ -100,7 +100,7 @@ export default function OnboardingModal({ user, onComplete }) {
           {step === 1 && (
             <div className="step-content">
               <div className="step-icon-badge">
-                <DollarSign size={24} color="var(--accent-green)" />
+                <DollarSign size={24} />
               </div>
               <h3>What is your estimated monthly income?</h3>
               <p className="step-desc">Enter your expected monthly salary or total incoming revenue.</p>
@@ -126,7 +126,7 @@ export default function OnboardingModal({ user, onComplete }) {
           {step === 2 && (
             <div className="step-content">
               <div className="step-icon-badge">
-                <Layers size={24} color="var(--accent-cyan)" />
+                <Layers size={24} />
               </div>
               <h3>What is your biggest monthly expense?</h3>
               <p className="step-desc">Specify your major recurring monthly payment (e.g. Rent, Groceries, EMI).</p>
@@ -163,7 +163,7 @@ export default function OnboardingModal({ user, onComplete }) {
           {step === 3 && (
             <div className="step-content">
               <div className="step-icon-badge">
-                <PieChart size={24} color="var(--accent-amber)" />
+                <PieChart size={24} />
               </div>
               <h3>Set your initial category budget limit</h3>
               <p className="step-desc">Pick a category you want to keep under control this month.</p>
