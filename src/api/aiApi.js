@@ -13,6 +13,16 @@ const getGeminiKeys = () => {
   return raw.replace(/^["']|["']$/g, '').split(',').map(k => k.trim()).filter(Boolean);
 };
 
+const getGrokKey = () => {
+  const raw = (
+    import.meta.env.VITE_GROK_API_KEY ||
+    import.meta.env.NEXT_PUBLIC_GROK_API_KEY ||
+    import.meta.env.GROK_API_KEY ||
+    ''
+  ).trim();
+  return raw.replace(/^["']|["']$/g, '').trim();
+};
+
 const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeType = 'image/jpeg') => {
   const keys = getGeminiKeys();
   if (!keys.length) return null;
@@ -79,6 +89,70 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
   }
 
   console.warn('All Gemini REST calls failed:', lastError?.message || lastError);
+  return null;
+};
+
+// ─── Grok REST API (Fallback) ───
+const callGrokREST = async (prompt, isJson = false, base64Image = null, mimeType = 'image/jpeg') => {
+  const key = getGrokKey();
+  if (!key) return null;
+
+  try {
+    const url = 'https://api.x.ai/v1/chat/completions';
+    const content = [];
+
+    if (base64Image) {
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${base64Image}`
+        }
+      });
+    }
+    content.push({ type: "text", text: prompt });
+
+    const body = {
+      messages: [
+        {
+          role: "user",
+          content: content
+        }
+      ],
+      model: base64Image ? "grok-vision-beta" : "grok-beta",
+      stream: false,
+      temperature: 0.7
+    };
+
+    if (isJson) {
+      // Grok may not support strict response_format yet, but we prompt it.
+      // We will just parse the string safely.
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error(`Grok returned ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data?.choices?.[0]?.message?.content;
+    if (text) return text;
+  } catch (err) {
+    console.warn('Grok REST call failed:', err.message);
+  }
   return null;
 };
 
@@ -332,7 +406,14 @@ Budgets: ${JSON.stringify(budgets)}
 Respond ONLY with a valid JSON object:
 {"monthlySummary":"2-sentence financial summary","savingSuggestions":["tip1","tip2","tip3"],"growthIdea":"investment strategy"}`;
 
-        const rawText = await callGeminiREST(prompt, true);
+        let rawText = await callGeminiREST(prompt, true);
+        
+        // Fallback to Grok if Gemini fails
+        if (!rawText) {
+          console.warn('Switching to Grok API for insights...');
+          rawText = await callGrokREST(prompt, true);
+        }
+
         if (rawText) {
           const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleanJson);
@@ -411,7 +492,14 @@ Instructions:
 5. DO NOT use any markdown formatting (no asterisks *, no hashtags #).
 6. DO NOT use any emojis. Use plain text only. Keep responses concise but comprehensive.`;
 
-      const aiResponse = await callGeminiREST(prompt, false);
+      let aiResponse = await callGeminiREST(prompt, false);
+      
+      // Fallback to Grok if Gemini fails
+      if (!aiResponse) {
+        console.warn('Switching to Grok API for chat...');
+        aiResponse = await callGrokREST(prompt, false);
+      }
+
       if (aiResponse) {
         return { response: aiResponse, reply: aiResponse };
       }
@@ -436,7 +524,14 @@ Return ONLY a valid JSON object with the following keys exactly:
 Make sure the output is perfectly valid JSON without any markdown formatting wrappers around it.`;
 
     try {
-      const aiResponse = await callGeminiREST(prompt, true, base64Image, mimeType);
+      let aiResponse = await callGeminiREST(prompt, true, base64Image, mimeType);
+      
+      // Fallback to Grok Vision if Gemini fails
+      if (!aiResponse) {
+        console.warn('Switching to Grok Vision API for receipt parsing...');
+        aiResponse = await callGrokREST(prompt, true, base64Image, mimeType);
+      }
+
       if (aiResponse) {
         // Strip markdown backticks if Gemini still added them despite responseMimeType=application/json
         const jsonString = aiResponse.replace(/```json\n?|```/g, '').trim();
