@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { transactionApi } from './transactionApi';
 import { budgetApi } from './budgetApi';
 
+// ─── Gemini REST API (bypasses npm package v1beta issues) ───
 const getGeminiKey = () => {
   const raw = (
     import.meta.env.VITE_GEMINI_API_KEY ||
@@ -9,71 +9,295 @@ const getGeminiKey = () => {
     import.meta.env.GEMINI_API_KEY ||
     ''
   ).trim();
-
-  // Strip wrapping quotes if user typed "AIzaSy..." in Vercel settings
   return raw.replace(/^["']|["']$/g, '').trim();
 };
 
-const getGenAIClient = () => {
+const callGeminiREST = async (prompt, isJson = false) => {
   const key = getGeminiKey();
-  return key ? new GoogleGenerativeAI(key) : null;
-};
+  if (!key) return null;
 
-const generateGeminiContent = async (genAI, prompt, isJson = false) => {
-  const modelsToTry = [
-    'gemini-1.5-flash',
-    'gemini-2.0-flash-exp',
-    'gemini-1.5-flash-latest'
-  ];
-
+  const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
   let lastError = null;
 
-  for (const modelName of modelsToTry) {
+  for (const model of models) {
     try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        ...(isJson ? { generationConfig: { responseMimeType: "application/json" } } : {})
+      const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: isJson
+          ? { responseMimeType: 'application/json', temperature: 0.7 }
+          : { temperature: 0.7 }
+      };
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
       });
-      const result = await model.generateContent(prompt);
-      const text = result.response?.text();
+
+      if (!res.ok) {
+        // Try v1beta if v1 fails
+        const urlBeta = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        const resBeta = await fetch(urlBeta, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!resBeta.ok) {
+          lastError = new Error(`Model ${model} returned ${res.status} / ${resBeta.status}`);
+          continue;
+        }
+        const dataBeta = await resBeta.json();
+        const textBeta = dataBeta?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (textBeta) return textBeta;
+        continue;
+      }
+
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return text;
     } catch (err) {
       lastError = err;
     }
-
-    if (isJson) {
-      try {
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent(prompt);
-        const text = result.response?.text();
-        if (text) return text;
-      } catch (err) {
-        lastError = err;
-      }
-    }
   }
 
-  throw lastError || new Error("Gemini API call failed");
+  console.warn('All Gemini REST calls failed:', lastError?.message || lastError);
+  return null;
 };
 
+// ─── Financial Context Builder ───
+const buildFinancialContext = (transactions, budgets) => {
+  const totalIncome = transactions
+    .filter(t => t.type === 'INCOME')
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  const totalExpense = transactions
+    .filter(t => t.type === 'EXPENSE')
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  const netSavings = totalIncome - totalExpense;
+  const savingsRate = totalIncome > 0 ? ((netSavings / totalIncome) * 100).toFixed(1) : '0.0';
+
+  const catSpends = {};
+  transactions.filter(t => t.type === 'EXPENSE').forEach(t => {
+    catSpends[t.category] = (catSpends[t.category] || 0) + Number(t.amount || 0);
+  });
+  const sortedCats = Object.entries(catSpends).sort((a, b) => b[1] - a[1]);
+  const topCat = sortedCats[0]?.[0] || 'General';
+  const topCatAmount = sortedCats[0]?.[1] || 0;
+
+  return { totalIncome, totalExpense, netSavings, savingsRate, catSpends, sortedCats, topCat, topCatAmount };
+};
+
+// ─── Smart Financial Advisor Fallback ───
+const smartFinancialAdvisor = (message, ctx) => {
+  const text = message.toLowerCase().trim();
+  const { totalIncome, totalExpense, netSavings, savingsRate, catSpends, sortedCats, topCat, topCatAmount } = ctx;
+
+  // Extract ALL numbers from the query
+  const numberMatches = text.match(/[\d,]+/g);
+  const numbers = numberMatches ? numberMatches.map(n => parseInt(n.replace(/,/g, ''), 10)).filter(n => n > 0) : [];
+  const mainAmount = numbers[0] || 0;
+
+  // Extract time periods (months/years)
+  let months = 0;
+  const monthMatch = text.match(/(\d+)\s*(month|months)/i);
+  const yearMatch = text.match(/(\d+)\s*(year|years)/i);
+  if (monthMatch) months = parseInt(monthMatch[1]);
+  if (yearMatch) months = parseInt(yearMatch[1]) * 12;
+
+  // Detect lakh/crore multipliers
+  let targetAmount = mainAmount;
+  if (text.includes('lakh') || text.includes('lac')) targetAmount = mainAmount * 100000;
+  if (text.includes('crore') || text.includes('cr')) targetAmount = mainAmount * 10000000;
+  if (targetAmount === mainAmount && mainAmount > 0) targetAmount = mainAmount;
+
+  // ── Non-finance filter ──
+  const nonFinanceWords = ['weather', 'recipe', 'movie', 'game', 'football', 'cricket', 'who is', 'python code', 'java code', 'song', 'joke', 'tell me a story'];
+  const financeWords = ['sip', 'invest', 'rupee', 'rs', '₹', 'money', 'budget', 'expense', 'income', 'bank', 'tax', 'loan', 'cost', 'pay', 'buy', 'afford', 'save', 'saving', 'salary', 'emi', 'fd', 'mutual', 'stock', 'nifty', 'lakh', 'crore', 'interest', 'return', 'profit', 'loss', 'debt', 'credit', 'insurance', 'goal', 'plan', 'month', 'year', 'spend', 'finance', 'wealth', 'portfolio', 'asset'];
+  const isNonFinance = nonFinanceWords.some(k => text.includes(k)) && !financeWords.some(k => text.includes(k));
+
+  if (isNonFinance) {
+    return `🤖 **FinMitra AI Assistant**: I specialize in personal finance, investments, budgets, savings, and wealth management. Please ask me a finance-related question!`;
+  }
+
+  // ── Saving Goal / Target Questions ──
+  if ((text.includes('save') || text.includes('saving') || text.includes('make') || text.includes('goal') || text.includes('target') || text.includes('reach') || text.includes('accumulate') || text.includes('need')) && targetAmount > 0) {
+    const effectiveMonths = months || 3; // default 3 months
+    const monthlySavingNeeded = Math.ceil(targetAmount / effectiveMonths);
+    const gap = monthlySavingNeeded - netSavings;
+    const isAchievable = netSavings >= monthlySavingNeeded;
+
+    let advice = `🎯 **Financial Goal Analysis**:
+**Goal**: Save **₹${targetAmount.toLocaleString('en-IN')}** in **${effectiveMonths} months**
+
+📊 **Your Current Financials**:
+- Monthly Income: **₹${totalIncome.toLocaleString('en-IN')}**
+- Monthly Expenses: **₹${totalExpense.toLocaleString('en-IN')}**
+- Current Monthly Surplus: **₹${netSavings.toLocaleString('en-IN')}** (${savingsRate}% savings rate)
+
+💰 **Monthly Savings Required**: **₹${monthlySavingNeeded.toLocaleString('en-IN')}/month**\n`;
+
+    if (isAchievable) {
+      advice += `\n✅ **This goal is achievable!** You save ₹${netSavings.toLocaleString('en-IN')}/month, which is more than the required ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month.
+- You'll still have **₹${(netSavings - monthlySavingNeeded).toLocaleString('en-IN')}/month** remaining after setting aside the goal amount.
+
+💡 **Tip**: Park these savings in a high-yield savings account or liquid fund to earn interest while you save!`;
+    } else {
+      advice += `\n⚠️ **Stretch Goal**: You need ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month but currently save ₹${netSavings.toLocaleString('en-IN')}/month.
+- **Shortfall**: ₹${gap.toLocaleString('en-IN')}/month
+
+💡 **Action Plan to Bridge the Gap**:
+- Reduce **${topCat}** expenses (currently ₹${topCatAmount.toLocaleString('en-IN')}) by ₹${Math.min(gap, topCatAmount).toLocaleString('en-IN')}/month.
+- Extend the timeline to **${Math.ceil(targetAmount / netSavings)} months** to comfortably reach your goal.
+- Consider a short-term FD or Recurring Deposit for disciplined saving.`;
+    }
+    return advice;
+  }
+
+  // ── SIP / Investment ──
+  if (text.includes('sip') || text.includes('mutual fund') || text.includes('invest') || text.includes('stock') || text.includes('nifty') || text.includes('fd') || text.includes('portfolio')) {
+    const sipAmount = mainAmount || Math.floor(netSavings * 0.3);
+    const percentOfSavings = netSavings > 0 ? ((sipAmount / netSavings) * 100).toFixed(0) : 0;
+    // Rough 12% annual return estimate
+    const monthlyRate = 0.12 / 12;
+    const sipYears = [1, 3, 5, 10];
+    const projections = sipYears.map(y => {
+      const n = y * 12;
+      const fv = sipAmount * (((Math.pow(1 + monthlyRate, n) - 1) / monthlyRate) * (1 + monthlyRate));
+      return { years: y, value: Math.round(fv), invested: sipAmount * n };
+    });
+
+    return `📈 **SIP & Investment Analysis**:
+
+💵 **SIP Amount**: ₹${sipAmount.toLocaleString('en-IN')}/month (~${percentOfSavings}% of your monthly surplus ₹${netSavings.toLocaleString('en-IN')})
+
+📊 **Projected Growth** (assuming ~12% annual returns):
+${projections.map(p => `- **${p.years} year${p.years > 1 ? 's' : ''}**: ₹${p.value.toLocaleString('en-IN')} (Invested: ₹${p.invested.toLocaleString('en-IN')})`).join('\n')}
+
+💡 **Recommendations**:
+- ${sipAmount <= netSavings * 0.5 ? '✅ This is a healthy SIP allocation!' : '⚠️ Consider reducing SIP to 30-50% of surplus for liquidity.'}
+- Start with **Nifty 50 Index Funds** or **Flexi-Cap Funds** for balanced long-term growth.
+- Maintain an emergency fund of **₹${(totalExpense * 3).toLocaleString('en-IN')}** (3 months expenses) before investing.`;
+  }
+
+  // ── EMI / Loan ──
+  if (text.includes('emi') || text.includes('loan') || text.includes('borrow') || text.includes('interest rate')) {
+    const loanAmount = targetAmount || mainAmount || 500000;
+    const annualRate = 0.10; // 10% default
+    const tenureMonths = months || 36;
+    const r = annualRate / 12;
+    const emi = Math.round(loanAmount * r * Math.pow(1 + r, tenureMonths) / (Math.pow(1 + r, tenureMonths) - 1));
+    const totalPayable = emi * tenureMonths;
+    const totalInterest = totalPayable - loanAmount;
+    const emiAffordable = emi <= netSavings * 0.5;
+
+    return `🏦 **Loan / EMI Calculator**:
+
+- **Loan Amount**: ₹${loanAmount.toLocaleString('en-IN')}
+- **Interest Rate**: ~10% per annum
+- **Tenure**: ${tenureMonths} months
+- **Monthly EMI**: **₹${emi.toLocaleString('en-IN')}**
+- **Total Interest Paid**: ₹${totalInterest.toLocaleString('en-IN')}
+- **Total Payable**: ₹${totalPayable.toLocaleString('en-IN')}
+
+${emiAffordable
+  ? `✅ **Affordable**: EMI of ₹${emi.toLocaleString('en-IN')} is within 50% of your monthly surplus (₹${netSavings.toLocaleString('en-IN')}).`
+  : `⚠️ **Caution**: EMI of ₹${emi.toLocaleString('en-IN')} is more than 50% of your monthly surplus (₹${netSavings.toLocaleString('en-IN')}). Consider a longer tenure or smaller loan.`}`;
+  }
+
+  // ── Buying / Affordability ──
+  if (text.includes('buy') || text.includes('afford') || text.includes('purchase') || text.includes('car') || text.includes('phone') || text.includes('bike') || text.includes('house') || text.includes('laptop')) {
+    const purchaseAmt = targetAmount || mainAmount || 50000;
+    const monthsToSave = Math.ceil(purchaseAmt / (netSavings || 1));
+    return `🛒 **Affordability Analysis**:
+
+- **Purchase Cost**: ₹${purchaseAmt.toLocaleString('en-IN')}
+- **Your Monthly Surplus**: ₹${netSavings.toLocaleString('en-IN')}
+- **Time to Save**: ~**${monthsToSave} month${monthsToSave > 1 ? 's' : ''}**
+
+💡 ${purchaseAmt <= netSavings
+  ? `✅ You can afford this from a single month's savings!`
+  : `Save ₹${Math.ceil(purchaseAmt / 3).toLocaleString('en-IN')}/month for 3 months in a separate savings account.`}
+- Always ensure your emergency fund (₹${(totalExpense * 3).toLocaleString('en-IN')}) remains untouched.`;
+  }
+
+  // ── Tax Questions ──
+  if (text.includes('tax') || text.includes('80c') || text.includes('section') || text.includes('deduction') || text.includes('regime')) {
+    return `📋 **Tax Planning Guidance**:
+
+Based on your annual income of ~₹${(totalIncome * 12).toLocaleString('en-IN')}:
+
+- **Section 80C**: Invest up to ₹1,50,000/year in ELSS, PPF, or NPS for tax deduction.
+- **Section 80D**: Health insurance premiums up to ₹25,000 (₹50,000 for senior citizens).
+- **Standard Deduction**: ₹50,000 automatically deducted for salaried employees.
+- **New vs Old Regime**: If your total deductions exceed ₹3,75,000, the old regime may save you more tax.
+
+💡 **Tip**: Start a ₹12,500/month ELSS SIP to maximize 80C while building wealth!`;
+  }
+
+  // ── Expense / Spending Analysis ──
+  if (text.includes('expense') || text.includes('spent') || text.includes('spending') || text.includes('cost') || text.includes('where does my money go')) {
+    const catBreakdown = sortedCats.slice(0, 5).map(([cat, amt]) => `  - **${cat}**: ₹${amt.toLocaleString('en-IN')} (${((amt / totalExpense) * 100).toFixed(0)}%)`).join('\n');
+    return `📊 **Detailed Expense Analysis**:
+
+- **Total Expenses**: ₹${totalExpense.toLocaleString('en-IN')}
+- **Expense-to-Income Ratio**: ${((totalExpense / (totalIncome || 1)) * 100).toFixed(1)}%
+
+📂 **Category Breakdown** (Top ${Math.min(5, sortedCats.length)}):
+${catBreakdown}
+
+💡 **Tip**: Try to reduce your top category **${topCat}** spending by 10-15% to increase your savings rate from ${savingsRate}% to ~${(parseFloat(savingsRate) + 5).toFixed(1)}%.`;
+  }
+
+  // ── Income / Salary ──
+  if (text.includes('income') || text.includes('salary') || text.includes('earn')) {
+    return `💵 **Income Summary**:
+
+- **Monthly Income**: ₹${totalIncome.toLocaleString('en-IN')}
+- **Annual Income** (projected): ₹${(totalIncome * 12).toLocaleString('en-IN')}
+- **Net Surplus**: ₹${netSavings.toLocaleString('en-IN')}/month (${savingsRate}% savings rate)
+
+💡 **Wealth Building Tip**: At your current savings rate, you'll accumulate **₹${(netSavings * 12).toLocaleString('en-IN')}** per year in savings. Consider investing 50% of this in SIPs for long-term compounding!`;
+  }
+
+  // ── Budget Questions ──
+  if (text.includes('budget') || text.includes('limit') || text.includes('cap') || text.includes('over budget')) {
+    return `📋 **Budget Status**:
+
+${sortedCats.map(([cat, amt]) => `- **${cat}**: ₹${amt.toLocaleString('en-IN')} spent`).join('\n')}
+
+💡 **50/30/20 Rule for ₹${totalIncome.toLocaleString('en-IN')} income**:
+- **Needs** (50%): ₹${Math.round(totalIncome * 0.5).toLocaleString('en-IN')}
+- **Wants** (30%): ₹${Math.round(totalIncome * 0.3).toLocaleString('en-IN')}
+- **Savings/Invest** (20%): ₹${Math.round(totalIncome * 0.2).toLocaleString('en-IN')}`;
+  }
+
+  // ── General / Catch-all Financial Answer ──
+  return `💡 **FinMitra AI Financial Summary**:
+
+📊 **Your Financial Snapshot**:
+- **Income**: ₹${totalIncome.toLocaleString('en-IN')} | **Expenses**: ₹${totalExpense.toLocaleString('en-IN')}
+- **Net Savings**: ₹${netSavings.toLocaleString('en-IN')}/month (${savingsRate}% rate)
+- **Top Spend**: ${topCat} (₹${topCatAmount.toLocaleString('en-IN')})
+
+I can help you with detailed analysis! Try asking:
+- *"How much should I save to make ₹1 lakh in 3 months?"*
+- *"Should I start a SIP of ₹5000?"*
+- *"Can I afford a laptop for ₹60,000?"*
+- *"Calculate EMI for a ₹5 lakh loan"*
+- *"How to save tax on my income?"*`;
+};
+
+// ─── Exported API ───
 export const aiApi = {
   getInsights: async () => {
     try {
       const transactions = await transactionApi.getTransactions();
       const budgets = await budgetApi.getBudgets();
+      const ctx = buildFinancialContext(transactions, budgets);
 
-      const totalIncome = transactions
-        .filter(t => t.type === 'INCOME')
-        .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-      const totalExpense = transactions
-        .filter(t => t.type === 'EXPENSE')
-        .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-      const netSavings = totalIncome - totalExpense;
-      const savingsRate = totalIncome > 0 ? ((netSavings / totalIncome) * 100).toFixed(1) : '0.0';
-
-      let monthlySummary = `You earned ₹${totalIncome.toLocaleString('en-IN')} and spent ₹${totalExpense.toLocaleString('en-IN')}, saving ₹${netSavings.toLocaleString('en-IN')} (${savingsRate}% savings rate).`;
+      let monthlySummary = `You earned ₹${ctx.totalIncome.toLocaleString('en-IN')} and spent ₹${ctx.totalExpense.toLocaleString('en-IN')}, saving ₹${ctx.netSavings.toLocaleString('en-IN')} (${ctx.savingsRate}% savings rate).`;
       let savingSuggestions = [
         "Aim to allocate at least 20% of your income into emergency funds or SIPs.",
         "Review top recurring expense categories to identify unnecessary costs.",
@@ -81,63 +305,48 @@ export const aiApi = {
       ];
       let growthIdea = "Consider investing your monthly net savings into low-cost Nifty 50 Index Funds or High-Yield Fixed Deposits to beat inflation.";
 
-      const genAI = getGenAIClient();
-      if (genAI) {
-        try {
-          const prompt = `You are FinMitra AI Assistant, an expert wealth manager. Analyze this user financial data:
-Income: ₹${totalIncome}
-Expenses: ₹${totalExpense}
-Net Savings: ₹${netSavings}
-Savings Rate: ${savingsRate}%
+      // Try Gemini REST API for richer insights
+      try {
+        const prompt = `You are FinMitra AI Assistant, an expert wealth manager. Analyze this user financial data:
+Income: ₹${ctx.totalIncome}, Expenses: ₹${ctx.totalExpense}, Net Savings: ₹${ctx.netSavings}, Savings Rate: ${ctx.savingsRate}%
 Recent Transactions: ${JSON.stringify(transactions.slice(0, 10))}
 Budgets: ${JSON.stringify(budgets)}
 
-Respond ONLY with a valid JSON object matching this exact schema:
-{
-  "monthlySummary": "A concise 2-sentence breakdown of their spending patterns and financial health.",
-  "savingSuggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
-  "growthIdea": "A smart investment or wealth growth strategy based on their current net savings."
-}`;
+Respond ONLY with a valid JSON object:
+{"monthlySummary":"2-sentence financial summary","savingSuggestions":["tip1","tip2","tip3"],"growthIdea":"investment strategy"}`;
 
-          const rawText = await generateGeminiContent(genAI, prompt, true);
+        const rawText = await callGeminiREST(prompt, true);
+        if (rawText) {
           const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleanJson);
-
           if (parsed.monthlySummary) monthlySummary = parsed.monthlySummary;
-          if (Array.isArray(parsed.savingSuggestions) && parsed.savingSuggestions.length > 0) {
-            savingSuggestions = parsed.savingSuggestions;
-          }
+          if (Array.isArray(parsed.savingSuggestions) && parsed.savingSuggestions.length > 0) savingSuggestions = parsed.savingSuggestions;
           if (parsed.growthIdea) growthIdea = parsed.growthIdea;
-        } catch (aiError) {
-          console.warn('Gemini AI Insights fallback activated:', aiError?.message || aiError);
         }
+      } catch (aiErr) {
+        console.warn('Gemini insights fallback:', aiErr?.message);
       }
 
       return {
-        income: totalIncome,
-        expense: totalExpense,
-        savings: netSavings,
-        savingsRate,
+        income: ctx.totalIncome,
+        expense: ctx.totalExpense,
+        savings: ctx.netSavings,
+        savingsRate: ctx.savingsRate,
         monthlySummary,
         savingSuggestions,
         growthIdea,
-        insights: [
-          {
-            title: `Savings Rate: ${savingsRate}%`,
-            description: netSavings >= 0
-              ? `Great job! You saved ₹${netSavings.toLocaleString('en-IN')} this period.`
-              : `Warning: Expenses exceed income by ₹${Math.abs(netSavings).toLocaleString('en-IN')}.`,
-            type: netSavings >= 0 ? "SUCCESS" : "WARNING"
-          }
-        ]
+        insights: [{
+          title: `Savings Rate: ${ctx.savingsRate}%`,
+          description: ctx.netSavings >= 0
+            ? `Great job! You saved ₹${ctx.netSavings.toLocaleString('en-IN')} this period.`
+            : `Warning: Expenses exceed income by ₹${Math.abs(ctx.netSavings).toLocaleString('en-IN')}.`,
+          type: ctx.netSavings >= 0 ? "SUCCESS" : "WARNING"
+        }]
       };
     } catch (e) {
       console.error('Error fetching insights:', e);
       return {
-        income: 0,
-        expense: 0,
-        savings: 0,
-        savingsRate: '0.0',
+        income: 0, expense: 0, savings: 0, savingsRate: '0.0',
         monthlySummary: "Welcome to FinMitra! Log your income and expenses to generate live AI financial insights.",
         savingSuggestions: ["Log your first transaction to get personalized advice."],
         growthIdea: "Start by tracking daily expenses.",
@@ -153,163 +362,48 @@ Respond ONLY with a valid JSON object matching this exact schema:
       transactions = await transactionApi.getTransactions();
       budgets = await budgetApi.getBudgets();
     } catch (e) {
-      console.warn('Could not fetch context for chat:', e);
+      console.warn('Could not fetch context:', e);
     }
 
-    const totalIncome = transactions
-      .filter(t => t.type === 'INCOME')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const ctx = buildFinancialContext(transactions, budgets);
 
-    const totalExpense = transactions
-      .filter(t => t.type === 'EXPENSE')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    // 1. Try Gemini REST API first
+    try {
+      const contextData = JSON.stringify({
+        totalIncome: ctx.totalIncome,
+        totalExpense: ctx.totalExpense,
+        netSavings: ctx.netSavings,
+        savingsRate: ctx.savingsRate,
+        topCategory: ctx.topCat,
+        recentTransactions: transactions.slice(0, 10),
+        budgets
+      });
 
-    const netSavings = totalIncome - totalExpense;
-    const savingsRate = totalIncome > 0 ? ((netSavings / totalIncome) * 100).toFixed(1) : '0.0';
+      const prompt = `You are FinMitra AI Assistant, an expert personal finance & wealth management adviser.
 
-    const catSpends = {};
-    transactions.filter(t => t.type === 'EXPENSE').forEach(t => {
-      catSpends[t.category] = (catSpends[t.category] || 0) + Number(t.amount || 0);
-    });
-    const topCat = Object.keys(catSpends).sort((a, b) => catSpends[b] - catSpends[a])[0] || 'General';
-    const topCatAmount = catSpends[topCat] || 0;
+User's Live Financial Context:
+${contextData}
 
-    // 1. Attempt Gemini AI
-    const genAI = getGenAIClient();
-    if (genAI) {
-      try {
-        const contextSummary = JSON.stringify({
-          totalIncome,
-          totalExpense,
-          netSavings,
-          savingsRate,
-          topCategory: topCat,
-          topCategoryExpense: topCatAmount,
-          recentTransactions: transactions.slice(0, 10),
-          budgetLimits: budgets
-        });
-
-        const systemPrompt = `You are FinMitra AI Assistant, an expert personal wealth manager and financial adviser.
-User Financial Data Context: ${contextSummary}
-
-User Question: ${message}
+User Question: "${message}"
 
 Instructions:
-1. Answer ANY financial, investment, SIP, budgeting, loan, tax, savings, or spending question with high financial accuracy.
-2. Seamlessly integrate the user's real financial context (Income: ₹${totalIncome}, Expenses: ₹${totalExpense}, Net Savings: ₹${netSavings}, Savings Rate: ${savingsRate}%) into your advice.
-3. If the user asks a non-financial question (e.g. sports, movies, coding, recipes, weather), politely decline and state that you are specialized exclusively in personal finance and wealth management.
-4. Format your answer with clean Markdown headers and bullet points.`;
+1. Answer ANY financial question (SIPs, investments, savings goals, EMI, tax, budgets, loans, insurance, spending analysis) with high accuracy.
+2. Always incorporate the user's REAL financial data (Income: ₹${ctx.totalIncome}, Expenses: ₹${ctx.totalExpense}, Net Savings: ₹${ctx.netSavings}/month) into your response.
+3. If the user asks a saving goal question (e.g. "save 1 lakh in 3 months"), calculate the exact monthly saving needed and compare with their current surplus.
+4. If the question is NOT about finance at all, politely say you specialize only in personal finance.
+5. Use clean Markdown formatting with headers, bullet points, and emojis.
+6. Keep responses concise but comprehensive.`;
 
-        const responseText = await generateGeminiContent(genAI, systemPrompt, false);
-        if (responseText) {
-          return { response: responseText, reply: responseText };
-        }
-      } catch (err) {
-        console.warn('Gemini Chat API Error, activating intelligent fallback adviser:', err?.message || err);
+      const aiResponse = await callGeminiREST(prompt, false);
+      if (aiResponse) {
+        return { response: aiResponse, reply: aiResponse };
       }
+    } catch (err) {
+      console.warn('Gemini chat fallback activated:', err?.message);
     }
 
-    // 2. Flexible Intelligent Financial Fallback Engine
-    const text = message.toLowerCase().trim();
-
-    // Check for non-finance topics
-    const nonFinanceKeywords = ['weather', 'recipe', 'movie', 'game', 'football', 'cricket', 'who is', 'python', 'java', 'code', 'song', 'joke'];
-    const isNonFinance = nonFinanceKeywords.some(k => text.includes(k)) && 
-      !['sip', 'invest', 'rupee', 'rs', 'money', 'budget', 'expense', 'income', 'bank', 'tax', 'loan', 'cost', 'pay', 'buy', 'afford'].some(k => text.includes(k));
-
-    if (isNonFinance) {
-      const nonFinReply = `🤖 **FinMitra AI Assistant**: I am specialized as your personal financial adviser. I can only assist with personal finance, investments, budgets, savings, and wealth questions!`;
-      return { response: nonFinReply, reply: nonFinReply };
-    }
-
-    // Extract numerical amounts from query (e.g. "sip of 5000", "buy car for 500000")
-    const numberMatches = text.match(/[\d,]+/g);
-    let queriedAmount = 0;
-    if (numberMatches && numberMatches.length > 0) {
-      queriedAmount = parseInt(numberMatches[0].replace(/,/g, ''), 10) || 0;
-    }
-
-    let reply = "";
-
-    // SIP / Investment / Mutual Fund Query
-    if (text.includes("sip") || text.includes("mutual fund") || text.includes("invest") || text.includes("stock") || text.includes("nifty") || text.includes("fd")) {
-      if (queriedAmount > 0) {
-        if (queriedAmount <= netSavings) {
-          const percentOfSavings = ((queriedAmount / (netSavings || 1)) * 100).toFixed(0);
-          reply = `📈 **SIP / Investment Recommendation**:
-Yes! Starting a SIP of **₹${queriedAmount.toLocaleString('en-IN')}** per month is a fantastic financial decision!
-
-- **Your Net Monthly Savings**: ₹${netSavings.toLocaleString('en-IN')} (${savingsRate}% savings rate)
-- **SIP Allocation**: ₹${queriedAmount.toLocaleString('en-IN')} (~${percentOfSavings}% of your net savings)
-- **Remaining Emergency Buffer**: ₹${(netSavings - queriedAmount).toLocaleString('en-IN')}/month.
-
-💡 **Strategy**: Consider allocating this SIP into low-cost Nifty 50 Index Funds or Flexi-Cap Funds for steady long-term compounding!`;
-        } else {
-          reply = `⚠️ **SIP / Investment Caution**:
-A monthly SIP of **₹${queriedAmount.toLocaleString('en-IN')}** exceeds your current net monthly savings of **₹${netSavings.toLocaleString('en-IN')}**.
-
-💡 **Recommendation**: Consider starting with a smaller SIP of **₹${(Math.max(1000, Math.floor(netSavings * 0.3))).toLocaleString('en-IN')}** (~30% of your surplus) to maintain liquid cash reserves!`;
-        }
-      } else {
-        reply = `📈 **Investment Guidance**:
-Based on your net monthly surplus of **₹${netSavings.toLocaleString('en-IN')}** (${savingsRate}% savings rate):
-
-- **Recommended SIP**: Allocate 20% to 50% of monthly savings (**₹${(Math.floor(netSavings * 0.3)).toLocaleString('en-IN')}/month**) into index funds.
-- **Emergency Reserve**: Keep 3-6 months of expenses (**₹${(totalExpense * 3).toLocaleString('en-IN')}**) in liquid FDs.`;
-      }
-    }
-    // Purchasing / Buying / Affordability Query
-    else if (text.includes("buy") || text.includes("afford") || text.includes("purchase") || text.includes("car") || text.includes("phone") || text.includes("bike")) {
-      if (queriedAmount > 0) {
-        const monthsNeeded = (queriedAmount / (netSavings || 1)).toFixed(1);
-        reply = `🛒 **Affordability Analysis**:
-For a purchase costing **₹${queriedAmount.toLocaleString('en-IN')}**:
-
-- **Your Net Monthly Surplus**: ₹${netSavings.toLocaleString('en-IN')}
-- **Time to Save**: ~**${monthsNeeded} months** of net savings.
-- **Financial Tip**: Ensure your emergency fund of **₹${(totalExpense * 3).toLocaleString('en-IN')}** remains intact before allocating funds to non-essentials.`;
-      } else {
-        reply = `🛒 **Purchase Guidance**:
-Before making major purchases:
-1. Ensure your liquid emergency fund (**₹${(totalExpense * 3).toLocaleString('en-IN')}**) is untouched.
-2. Use your net surplus (**₹${netSavings.toLocaleString('en-IN')}/month**) to build a target savings goal first!`;
-      }
-    }
-    // Expense Queries
-    else if (text.includes("expense") || text.includes("spent") || text.includes("cost")) {
-      reply = `📊 **Expense Overview**:
-- **Total Expenses**: **₹${totalExpense.toLocaleString('en-IN')}**
-- **Top Spending Category**: **${topCat}** (**₹${topCatAmount.toLocaleString('en-IN')}**)
-- **Expense Ratio**: ${totalIncome > 0 ? ((totalExpense / totalIncome) * 100).toFixed(1) : 0}% of income.`;
-    }
-    // Income / Salary Queries
-    else if (text.includes("income") || text.includes("salary") || text.includes("earn")) {
-      reply = `💵 **Income Overview**:
-- **Total Income**: **₹${totalIncome.toLocaleString('en-IN')}**
-- **Net Monthly Savings**: **₹${netSavings.toLocaleString('en-IN')}** (${savingsRate}% savings rate)`;
-    }
-    // Budget Queries
-    else if (text.includes("budget") || text.includes("limit") || text.includes("cap")) {
-      const overBudgets = budgets.filter(b => (catSpends[b.category] || 0) > Number(b.limitAmount || 0));
-      if (overBudgets.length > 0) {
-        reply = `⚠️ **Budget Alert**: You have exceeded your budget cap in: ${overBudgets.map(b => `${b.category} (Limit: ₹${b.limitAmount})`).join(', ')}.`;
-      } else {
-        reply = `✅ **Budget Status**: Great job! All category expenses are within your set budget caps.`;
-      }
-    }
-    // General / Any Other Financial Query
-    else {
-      reply = `💡 **FinMitra Financial Assistant**:
-- **Income**: ₹${totalIncome.toLocaleString('en-IN')} | **Expense**: ₹${totalExpense.toLocaleString('en-IN')}
-- **Net Monthly Surplus**: ₹${netSavings.toLocaleString('en-IN')} (${savingsRate}% savings rate)
-
-I am ready to help with any financial question! Try asking:
-- *"Should I start a SIP of ₹5000?"*
-- *"Can I afford a purchase of ₹30000?"*
-- *"How can I improve my savings rate?"*
-- *"Which is my top expense category?"*`;
-    }
-
+    // 2. Smart financial advisor fallback
+    const reply = smartFinancialAdvisor(message, ctx);
     return { response: reply, reply };
   }
 };
