@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, X, Trash2, Edit2, RefreshCw } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect, useRef } from 'react';
 import { transactionApi } from '../api/transactionApi';
 import { categoryApi } from '../api/categoryApi';
-import './TransactionsView.css';
+import { aiApi } from '../api/aiApi';
 
 const BUILT_IN_CATEGORIES = [
   'To People',
@@ -17,11 +15,12 @@ const BUILT_IN_CATEGORIES = [
   'Salary'
 ];
 
-export default function TransactionsView({ onTransactionChange }) {
-  const { user } = useAuth();
+export default function TransactionsView({ onNavigateTab }) {
   const [txList, setTxList] = useState([]);
   const [customCategories, setCustomCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Modal State
   const [showModal, setShowModal] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -35,6 +34,11 @@ export default function TransactionsView({ onTransactionChange }) {
   const [type, setType] = useState('Expense');
   const [amount, setAmount] = useState('');
 
+  // Receipt Scanner State
+  const [isScanning, setIsScanning] = useState(false);
+  const [scannedData, setScannedData] = useState(null);
+  const fileInputRef = useRef(null);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -44,7 +48,6 @@ export default function TransactionsView({ onTransactionChange }) {
       ]);
       setTxList(txData);
       setCustomCategories(catData || []);
-      if (onTransactionChange) onTransactionChange(txData);
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
     } finally {
@@ -71,7 +74,7 @@ export default function TransactionsView({ onTransactionChange }) {
 
   const openEditModal = (tx) => {
     setEditingTx(tx);
-    setDate(tx.date);
+    setDate(tx.date ? tx.date.split('T')[0] : '');
     setSelectedCategoryOption(tx.category);
     setCustomCategoryInput('');
     setNote(tx.note);
@@ -87,26 +90,23 @@ export default function TransactionsView({ onTransactionChange }) {
       await transactionApi.deleteTransaction(id);
       const updated = txList.filter(t => t.id !== id);
       setTxList(updated);
-      if (onTransactionChange) onTransactionChange(updated);
     } catch (err) {
       alert('Failed to delete transaction');
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!amount || !note) return;
+  const handleSubmit = async (e, customPayload = null) => {
+    if (e) e.preventDefault();
     setErrorMsg('');
 
     let finalCategory = selectedCategoryOption;
 
     try {
-      if (selectedCategoryOption === '__CUSTOM__') {
+      if (selectedCategoryOption === '__CUSTOM__' && !customPayload) {
         if (!customCategoryInput.trim()) {
           setErrorMsg('Please enter a custom category name');
           return;
         }
-
         try {
           const newCat = await categoryApi.createCategory({
             name: customCategoryInput.trim(),
@@ -119,7 +119,7 @@ export default function TransactionsView({ onTransactionChange }) {
         }
       }
 
-      const payload = {
+      const payload = customPayload || {
         amount: parseFloat(amount),
         category: finalCategory,
         note,
@@ -127,214 +127,407 @@ export default function TransactionsView({ onTransactionChange }) {
         date
       };
 
-      if (editingTx) {
+      if (editingTx && !customPayload) {
         const updatedTx = await transactionApi.updateTransaction(editingTx.id, payload);
         const updatedList = txList.map(t => t.id === editingTx.id ? updatedTx : t);
         setTxList(updatedList);
-        if (onTransactionChange) onTransactionChange(updatedList);
       } else {
         const newTx = await transactionApi.createTransaction(payload);
         const updatedList = [newTx, ...txList];
         setTxList(updatedList);
-        if (onTransactionChange) onTransactionChange(updatedList);
       }
 
       setShowModal(false);
       setEditingTx(null);
+      if (customPayload) setScannedData(null);
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Failed to save transaction');
     }
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    setScannedData(null);
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result.split(',')[1];
+        const res = await aiApi.parseReceiptImage(base64String, file.type);
+        if (res) {
+          setScannedData({
+            merchant: res.merchant || 'Unknown Merchant',
+            date: res.date || new Date().toISOString().split('T')[0],
+            amount: res.amount || 0,
+            category: res.category || 'Food & Dining',
+          });
+        }
+        setIsScanning(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      setIsScanning(false);
+      alert('Failed to scan receipt');
+    }
+  };
+
+  const saveScannedTransaction = () => {
+    if (!scannedData) return;
+    handleSubmit(null, {
+      amount: parseFloat(scannedData.amount),
+      category: scannedData.category,
+      note: scannedData.merchant,
+      type: 'EXPENSE',
+      date: scannedData.date
+    });
+  };
+
   const customNames = customCategories.map(c => c.name);
   const allCategoryOptions = Array.from(new Set([...BUILT_IN_CATEGORIES, ...customNames]));
 
-  return (
-    <div className="transactions-view-container">
-      <div className="view-header">
-        <h2 className="view-title">All transactions</h2>
-        <button className="btn btn-primary" onClick={openAddModal}>
-          <Plus size={16} />
-          Add transaction
-        </button>
-      </div>
+  const getCategoryIcon = (cat) => {
+    cat = (cat || '').toLowerCase();
+    if (cat.includes('food') || cat.includes('dining')) return 'restaurant';
+    if (cat.includes('travel') || cat.includes('transport')) return 'flight';
+    if (cat.includes('software') || cat.includes('tech')) return 'computer';
+    if (cat.includes('shop')) return 'shopping_bag';
+    if (cat.includes('income') || cat.includes('salary')) return 'payments';
+    return 'receipt';
+  };
 
-      <div className="fin-card table-card">
-        {loading ? (
-          <div className="loading-state" style={{ padding: '30px', textAlign: 'center' }}>
-            <RefreshCw size={24} className="spin-icon" /> Loading live transactions...
+  return (
+    <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-surface w-full h-full">
+      <div className="max-w-[1440px] mx-auto h-full flex flex-col gap-6">
+        
+        {/* Page Header & Filters */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <h2 className="font-headline-lg text-headline-lg text-primary">Transactions</h2>
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <button 
+              onClick={openAddModal}
+              className="px-4 py-2 bg-primary text-on-primary rounded-DEFAULT font-label-md text-label-md hover:bg-primary-container transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              New Transaction
+            </button>
+            <button className="px-4 py-2 border border-outline-variant text-on-surface-variant rounded-DEFAULT font-label-md text-label-md hover:bg-surface-container-lowest transition-colors flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">filter_list</span>
+              Filters
+            </button>
           </div>
-        ) : txList.length === 0 ? (
-          <div className="empty-state" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            No transactions found. Click "+ Add transaction" to log your first entry!
+        </div>
+
+        {/* Content Layout: Bento Style */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full min-h-[500px]">
+          
+          {/* Left: Data Table (Spans 8 cols) */}
+          <div className="lg:col-span-8 flex flex-col gap-4 h-full">
+            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex-1 flex flex-col overflow-hidden h-full">
+              <div className="px-6 py-4 border-b border-outline-variant bg-surface-bright flex justify-between items-center">
+                <h3 className="font-headline-md text-headline-md text-primary">Recent Activity</h3>
+                <button className="text-secondary font-label-sm text-label-sm hover:underline">Export CSV</button>
+              </div>
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead className="bg-surface-container-low sticky top-0 z-10">
+                    <tr>
+                      <th className="py-3 px-6 font-label-sm text-label-sm text-on-surface-variant font-semibold border-b border-outline-variant">Date</th>
+                      <th className="py-3 px-6 font-label-sm text-label-sm text-on-surface-variant font-semibold border-b border-outline-variant">Description</th>
+                      <th className="py-3 px-6 font-label-sm text-label-sm text-on-surface-variant font-semibold border-b border-outline-variant">Category</th>
+                      <th className="py-3 px-6 font-label-sm text-label-sm text-on-surface-variant font-semibold border-b border-outline-variant text-right">Amount</th>
+                      <th className="py-3 px-6 font-label-sm text-label-sm text-on-surface-variant font-semibold border-b border-outline-variant text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant font-body-md text-body-md text-on-surface">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-on-surface-variant">Loading transactions...</td>
+                      </tr>
+                    ) : txList.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-on-surface-variant">No transactions found. Add one or scan a receipt!</td>
+                      </tr>
+                    ) : txList.map(tx => {
+                      const isIncome = (tx.type || '').toUpperCase() === 'INCOME';
+                      return (
+                        <tr key={tx.id} className="hover:bg-surface-bright transition-colors">
+                          <td className="py-4 px-6 text-on-surface-variant whitespace-nowrap">
+                            {tx.date ? new Date(tx.date).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="py-4 px-6 font-medium text-primary flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-outline shrink-0">
+                              <span className="material-symbols-outlined text-[16px]">{getCategoryIcon(tx.category)}</span>
+                            </div>
+                            <span className="truncate max-w-[200px] block">{tx.note || tx.title || 'Untitled'}</span>
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className={`px-2 py-1 rounded text-label-sm whitespace-nowrap ${isIncome ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-surface-container-high'}`}>
+                              {tx.category || 'Other'}
+                            </span>
+                          </td>
+                          <td className={`py-4 px-6 text-right font-medium whitespace-nowrap ${isIncome ? 'text-secondary' : ''}`}>
+                            {isIncome ? '+' : '-'}₹{Number(tx.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => openEditModal(tx)} className="text-secondary hover:text-primary transition-colors">
+                                <span className="material-symbols-outlined text-[18px]">edit</span>
+                              </button>
+                              <button onClick={() => handleDelete(tx.id)} className="text-error hover:text-on-error-container transition-colors">
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>DATE</th>
-                  <th>CATEGORY</th>
-                  <th>NOTE</th>
-                  <th>TYPE</th>
-                  <th>AMOUNT</th>
-                  <th>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {txList.map((tx) => (
-                  <tr key={tx.id}>
-                    <td className="text-muted">{tx.date}</td>
-                    <td>
-                      <span className={`badge-category ${tx.category.toLowerCase().replace(/\s+/g, '-')}`}>
-                        {tx.category}
-                      </span>
-                    </td>
-                    <td className="font-semibold">{tx.note}</td>
-                    <td className="text-muted">{tx.type}</td>
-                    <td className={`font-semibold ${tx.type === 'INCOME' || tx.type === 'Income' ? 'text-green' : 'text-rose'}`}>
-                      {tx.type === 'INCOME' || tx.type === 'Income' ? '+' : '-'}₹{Number(tx.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td>
-                      <div className="actions-cell" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button 
-                          className="action-btn edit-btn" 
-                          onClick={() => openEditModal(tx)} 
-                          title="Edit Transaction"
-                          style={{ background: 'transparent', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', padding: '4px' }}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          className="delete-btn" 
-                          onClick={() => handleDelete(tx.id)} 
-                          title="Delete Transaction"
-                        >
-                          <X size={16} />
-                        </button>
+
+          {/* Right: AI Receipt Scanner (Spans 4 cols) */}
+          <div className="lg:col-span-4 flex flex-col gap-4 h-full">
+            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex-1 flex flex-col p-6 relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center text-on-secondary">
+                  <span className="material-symbols-outlined text-[18px]">document_scanner</span>
+                </div>
+                <div>
+                  <h3 className="font-headline-md text-headline-md text-primary">AI Receipt Scanner</h3>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant">Powered by Gemini AI</p>
+                </div>
+              </div>
+
+              {!isScanning && !scannedData ? (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-secondary rounded-lg p-6 flex flex-col items-center justify-center text-center mb-6 h-40 cursor-pointer hover:bg-surface-container-low transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[32px] text-secondary mb-2">upload_file</span>
+                  <p className="font-body-md text-body-md text-on-surface font-medium">Click to Upload Receipt</p>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Extract data automatically via AI</p>
+                </div>
+              ) : isScanning ? (
+                <div className="border-2 border-dashed border-secondary rounded-lg p-6 flex flex-col items-center justify-center text-center mb-6 h-40 bg-surface-container-low relative overflow-hidden">
+                  <span className="material-symbols-outlined text-[32px] text-secondary mb-2 animate-bounce">receipt</span>
+                  <p className="font-body-md text-body-md text-on-surface font-medium">Processing Receipt...</p>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Extracting data via Gemini</p>
+                  <div className="absolute bottom-0 left-0 w-full h-1 bg-surface-container-high">
+                    <div className="h-full bg-secondary w-3/4 rounded-r animate-pulse"></div>
+                  </div>
+                </div>
+              ) : null}
+
+              <input 
+                type="file" 
+                accept="image/*" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleFileUpload} 
+              />
+
+              {scannedData && (
+                <div className="flex-1 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4">
+                  <div>
+                    <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 ml-1">Merchant</label>
+                    <div className="relative">
+                      <input 
+                        className="w-full pl-3 pr-10 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary" 
+                        type="text" 
+                        value={scannedData.merchant}
+                        onChange={(e) => setScannedData({...scannedData, merchant: e.target.value})}
+                      />
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-secondary text-[16px]">check_circle</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 ml-1">Date</label>
+                      <div className="relative">
+                        <input 
+                          className="w-full pl-3 pr-8 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary" 
+                          type="date" 
+                          value={scannedData.date}
+                          onChange={(e) => setScannedData({...scannedData, date: e.target.value})}
+                        />
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                    <div>
+                      <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 ml-1">Amount</label>
+                      <div className="relative">
+                        <input 
+                          className="w-full pl-3 pr-8 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary" 
+                          type="number" 
+                          step="0.01"
+                          value={scannedData.amount}
+                          onChange={(e) => setScannedData({...scannedData, amount: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 ml-1">Suggested Category</label>
+                    <div className="relative">
+                      <select 
+                        className="w-full appearance-none pl-3 pr-10 py-2 bg-surface-container-lowest border border-secondary rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none ring-1 ring-secondary"
+                        value={scannedData.category}
+                        onChange={(e) => setScannedData({...scannedData, category: e.target.value})}
+                      >
+                        {allCategoryOptions.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-secondary text-[16px]">auto_awesome</span>
+                      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-1 ml-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px] text-secondary">info</span> 
+                      AI high confidence match
+                    </p>
+                  </div>
+                  
+                  {/* CTA */}
+                  <div className="mt-auto pt-4 border-t border-outline-variant flex gap-3">
+                    <button 
+                      onClick={() => setScannedData(null)}
+                      className="flex-1 py-2 border border-outline-variant text-on-surface-variant rounded-DEFAULT font-label-md text-label-md hover:bg-surface-container-low transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={saveScannedTransaction}
+                      className="flex-[2] py-2 bg-primary text-on-primary rounded-DEFAULT font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm"
+                    >
+                      Review & Save
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Add / Edit Modal */}
       {showModal && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <div className="modal-header">
-              <h3>{editingTx ? 'Edit Transaction' : 'Add New Transaction'}</h3>
-              <button className="close-btn" onClick={() => setShowModal(false)}>
-                <X size={18} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-surface-container-lowest rounded-xl shadow-lg w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center p-4 border-b border-outline-variant">
+              <h3 className="font-headline-md text-headline-md text-primary">
+                {editingTx ? 'Edit Transaction' : 'Add New Transaction'}
+              </h3>
+              <button onClick={() => setShowModal(false)} className="text-on-surface-variant hover:text-primary transition-colors">
+                <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="modal-form">
-              {errorMsg && <div className="error-badge" style={{ background: 'rgba(244,63,94,0.15)', color: 'var(--accent-rose)', padding: '10px', borderRadius: '10px', fontSize: '0.85rem' }}>{errorMsg}</div>}
-
-              <div className="type-toggle">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {errorMsg && (
+                <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm">
+                  {errorMsg}
+                </div>
+              )}
+              
+              <div className="flex p-1 bg-surface-container-low rounded-lg">
                 <button 
                   type="button" 
-                  className={`type-btn ${type === 'Expense' ? 'active-expense' : ''}`}
                   onClick={() => setType('Expense')}
+                  className={`flex-1 py-2 text-center rounded-md font-label-md transition-all ${type === 'Expense' ? 'bg-surface-container-lowest shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
                 >
                   Expense
                 </button>
                 <button 
                   type="button" 
-                  className={`type-btn ${type === 'Income' ? 'active-income' : ''}`}
                   onClick={() => setType('Income')}
+                  className={`flex-1 py-2 text-center rounded-md font-label-md transition-all ${type === 'Income' ? 'bg-surface-container-lowest shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
                 >
                   Income
                 </button>
               </div>
 
-              <div className="input-group">
-                <label>Date</label>
+              <div>
+                <label className="block font-label-sm text-on-surface-variant mb-1">Date</label>
                 <input 
                   type="date" 
                   value={date} 
                   onChange={(e) => setDate(e.target.value)} 
                   required 
+                  className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
 
-              <div className="input-group">
-                <label>Category</label>
-                <select 
-                  value={selectedCategoryOption} 
-                  onChange={(e) => setSelectedCategoryOption(e.target.value)}
-                >
-                  {allCategoryOptions.map((cat, idx) => (
-                    <option key={idx} value={cat}>{cat}</option>
-                  ))}
-                  <option value="__CUSTOM__">✨ + Add Custom Category...</option>
-                </select>
+              <div>
+                <label className="block font-label-sm text-on-surface-variant mb-1">Category</label>
+                <div className="relative">
+                  <select 
+                    value={selectedCategoryOption} 
+                    onChange={(e) => setSelectedCategoryOption(e.target.value)}
+                    className="w-full appearance-none px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary pr-10"
+                  >
+                    {allCategoryOptions.map((cat, idx) => (
+                      <option key={idx} value={cat}>{cat}</option>
+                    ))}
+                    <option value="__CUSTOM__">✨ + Add Custom Category...</option>
+                  </select>
+                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+                </div>
               </div>
 
               {selectedCategoryOption === '__CUSTOM__' && (
-                <div style={{ background: 'var(--badge-bg)', padding: '14px', borderRadius: '14px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div className="input-group">
-                    <label>New Custom Category Name</label>
+                <div className="p-3 bg-surface-container rounded-lg space-y-3">
+                  <div>
+                    <label className="block font-label-sm text-on-surface-variant mb-1">New Category Name</label>
                     <input 
                       type="text" 
-                      placeholder="e.g. Pets, Gaming, Crypto" 
+                      placeholder="e.g. Pets" 
                       value={customCategoryInput} 
                       onChange={(e) => setCustomCategoryInput(e.target.value)} 
                       required 
-                      autoFocus
+                      className="w-full px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-md focus:outline-none focus:border-secondary"
                     />
-                  </div>
-
-                  <div className="input-group">
-                    <label>Category Theme Color</label>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <input 
-                        type="color" 
-                        value={customCategoryColor} 
-                        onChange={(e) => setCustomCategoryColor(e.target.value)} 
-                        style={{ width: '44px', height: '36px', border: 'none', background: 'transparent', cursor: 'pointer' }}
-                      />
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{customCategoryColor}</span>
-                    </div>
                   </div>
                 </div>
               )}
 
-              <div className="input-group">
-                <label>Note / Description</label>
+              <div>
+                <label className="block font-label-sm text-on-surface-variant mb-1">Description</label>
                 <input 
                   type="text" 
-                  placeholder="e.g. Sent to Ramesh or Monthly Groceries" 
+                  placeholder="e.g. Grocery store" 
                   value={note} 
                   onChange={(e) => setNote(e.target.value)} 
                   required 
+                  className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
 
-              <div className="input-group">
-                <label>Amount (₹)</label>
+              <div>
+                <label className="block font-label-sm text-on-surface-variant mb-1">Amount (₹)</label>
                 <input 
                   type="number" 
-                  step="0.01"
-                  placeholder="e.g. 5000" 
+                  step="0.01" 
+                  placeholder="e.g. 1500" 
                   value={amount} 
                   onChange={(e) => setAmount(e.target.value)} 
                   required 
+                  className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
 
-              <button type="submit" className="btn btn-primary full-btn">
-                {editingTx ? 'Update' : 'Save'}
-              </button>
+              <div className="pt-4">
+                <button type="submit" className="w-full py-3 bg-primary text-on-primary rounded-lg font-label-md hover:bg-primary-container transition-colors shadow-sm">
+                  {editingTx ? 'Update Transaction' : 'Save Transaction'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

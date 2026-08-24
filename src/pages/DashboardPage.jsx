@@ -29,7 +29,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="app-container">
+    <div className="bg-background text-on-background flex h-screen overflow-hidden antialiased w-full">
       {/* Onboarding Wizard Modal for First-Time Users */}
       {!isOnboarded && (
         <OnboardingModal user={user} onComplete={handleOnboardingComplete} />
@@ -39,10 +39,10 @@ export default function DashboardPage() {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Main App Content */}
-      <div className="main-content">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <TopHeader />
 
-        <main className="content-grid">
+        <div className="contents">
           {activeTab === 'dashboard' && (
             <DashboardView onNavigateTab={(tab) => setActiveTab(tab)} />
           )}
@@ -58,7 +58,7 @@ export default function DashboardPage() {
           {activeTab === 'insights' && (
             <AIInsightView />
           )}
-        </main>
+        </div>
       </div>
     </div>
   );

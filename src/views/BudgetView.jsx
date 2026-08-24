@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, AlertCircle, CheckCircle2, X, RefreshCw, Edit2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { budgetApi } from '../api/budgetApi';
 import { categoryApi } from '../api/categoryApi';
-import './BudgetView.css';
 
 const BUILT_IN_CATEGORIES = [
   'To People',
@@ -20,7 +17,6 @@ const BUILT_IN_CATEGORIES = [
 ];
 
 export default function BudgetView() {
-  const { user } = useAuth();
   const [budgets, setBudgets] = useState([]);
   const [customCategories, setCustomCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -117,140 +113,172 @@ export default function BudgetView() {
   const customNames = customCategories.map(c => c.name);
   const allCategoryOptions = Array.from(new Set([...BUILT_IN_CATEGORIES, ...customNames]));
 
+  const getCategoryIcon = (cat) => {
+    cat = (cat || '').toLowerCase();
+    if (cat.includes('food') || cat.includes('dining')) return 'restaurant';
+    if (cat.includes('travel') || cat.includes('transport')) return 'flight';
+    if (cat.includes('software') || cat.includes('tech')) return 'computer';
+    if (cat.includes('shop')) return 'shopping_bag';
+    if (cat.includes('health') || cat.includes('med')) return 'medical_services';
+    if (cat.includes('rent') || cat.includes('home')) return 'home';
+    return 'receipt';
+  };
+
   return (
-    <div className="budget-view-container">
-      <div className="view-header">
-        <h2 className="view-title">Monthly budgets</h2>
-        <button className="btn btn-primary" onClick={openAddModal}>
-          <Plus size={16} />
-          Set Budget Limit
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="loading-state" style={{ padding: '40px', textAlign: 'center' }}>
-          <RefreshCw size={24} className="spin-icon" /> Loading live budget data...
+    <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-surface w-full h-full">
+      <div className="max-w-[1440px] mx-auto h-full flex flex-col gap-6">
+        
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <h2 className="font-headline-lg text-headline-lg text-primary">Monthly Budgets</h2>
+          <button 
+            onClick={openAddModal}
+            className="px-4 py-2 bg-primary text-on-primary rounded-DEFAULT font-label-md text-label-md hover:bg-primary-container transition-colors flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            Set Budget Limit
+          </button>
         </div>
-      ) : budgets.length === 0 ? (
-        <div className="fin-card empty-state" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          No monthly budget limits set yet. Click "+ Set Budget Limit" to configure your first category limit!
-        </div>
-      ) : (
-        <div className="budget-cards-grid">
-          {budgets.map((b) => {
-            const spent = Number(b.spentAmount || 0);
-            const limitVal = Number(b.limitAmount || 0);
-            const isOver = spent > limitVal;
-            const pct = limitVal > 0 ? Math.min(100, (spent / limitVal) * 100) : 0;
-            const diff = Math.abs(spent - limitVal);
 
-            return (
-              <div key={b.id || b.category} className="fin-card budget-card">
-                <div className="budget-card-top">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="budget-cat-title">{b.category}</span>
-                    <button 
-                      onClick={() => openEditModal(b)} 
-                      title="Edit Budget Limit"
-                      style={{ background: 'transparent', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
-                    >
-                      <Edit2 size={14} />
-                    </button>
+        {/* Content Layout */}
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-6 min-h-[500px]">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant">
+              <span className="material-symbols-outlined text-4xl mb-4 animate-spin">refresh</span>
+              <p>Loading live budget data...</p>
+            </div>
+          ) : budgets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant">
+              <span className="material-symbols-outlined text-6xl mb-4 opacity-50">account_balance_wallet</span>
+              <p className="font-body-md text-center max-w-sm">No monthly budget limits set yet. Click "Set Budget Limit" to configure your first category limit!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {budgets.map((b) => {
+                const spent = Number(b.spentAmount || 0);
+                const limitVal = Number(b.limitAmount || 0);
+                const isOver = spent > limitVal;
+                const pct = limitVal > 0 ? Math.min(100, (spent / limitVal) * 100) : 0;
+                const diff = Math.abs(spent - limitVal);
+
+                return (
+                  <div key={b.id || b.category} className="border border-outline-variant rounded-xl p-5 hover:border-secondary transition-colors group relative overflow-hidden bg-surface-bright">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary group-hover:bg-white group-hover:text-secondary shrink-0 transition-colors">
+                          <span className="material-symbols-outlined">{getCategoryIcon(b.category)}</span>
+                        </div>
+                        <div>
+                          <h3 className="font-label-md text-primary font-bold">{b.category}</h3>
+                          <p className="font-label-sm text-on-surface-variant">
+                            {isOver ? 'Over budget' : `${pct.toFixed(0)}% used`}
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => openEditModal(b)} 
+                        className="text-on-surface-variant hover:text-secondary p-1"
+                        title="Edit Budget Limit"
+                      >
+                        <span className="material-symbols-outlined text-lg">edit</span>
+                      </button>
+                    </div>
+
+                    <div className="mb-2 flex justify-between items-end">
+                      <div>
+                        <span className="font-headline-md text-primary">₹{spent.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                      </div>
+                      <span className="font-label-sm text-on-surface-variant">
+                        of ₹{limitVal.toLocaleString('en-IN', {maximumFractionDigits: 0})}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-surface-container-high rounded-full h-2 mb-3 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-error' : 'bg-secondary'}`} 
+                        style={{ width: `${pct}%` }}
+                      ></div>
+                    </div>
+
+                    {/* Alert Status Footer */}
+                    <div className="flex items-center gap-1 mt-3 pt-3 border-t border-outline-variant/50">
+                      {isOver ? (
+                        <>
+                          <span className="material-symbols-outlined text-[16px] text-error">error</span>
+                          <span className="font-label-sm text-error">Over budget by ₹{diff.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[16px] text-secondary">check_circle</span>
+                          <span className="font-label-sm text-secondary">₹{diff.toLocaleString('en-IN', {maximumFractionDigits: 0})} remaining</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <span className="budget-cat-val">
-                    ₹{spent.toLocaleString('en-IN')} / ₹{limitVal.toLocaleString('en-IN')}
-                  </span>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="progress-bar-bg">
-                  <div 
-                    className={`progress-bar-fill ${isOver ? 'over' : 'good'}`} 
-                    style={{ width: `${pct}%` }}
-                  ></div>
-                </div>
-
-                {/* Alert Status Footer */}
-                <div className="budget-card-bottom">
-                  {isOver ? (
-                    <span className="budget-status over">
-                      <AlertCircle size={14} /> Over budget by ₹{diff.toLocaleString('en-IN')}
-                    </span>
-                  ) : (
-                    <span className="budget-status good">
-                      <CheckCircle2 size={14} /> ₹{diff.toLocaleString('en-IN')} remaining
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Set / Edit Budget Modal */}
       {showModal && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <div className="modal-header">
-              <h3>{editingBudget ? `Edit ${editingBudget.category} Budget` : 'Set Monthly Budget'}</h3>
-              <button className="close-btn" onClick={() => setShowModal(false)}>
-                <X size={18} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-surface-container-lowest rounded-xl shadow-lg w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center p-4 border-b border-outline-variant">
+              <h3 className="font-headline-md text-primary">
+                {editingBudget ? `Edit ${editingBudget.category} Budget` : 'Set Monthly Budget'}
+              </h3>
+              <button onClick={() => setShowModal(false)} className="text-on-surface-variant hover:text-primary transition-colors">
+                <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-
-            <form onSubmit={handleSaveBudget} className="modal-form">
+            
+            <form onSubmit={handleSaveBudget} className="p-6 space-y-4">
               {errorMsg && (
-                <div style={{ background: 'rgba(244,63,94,0.15)', color: 'var(--accent-rose)', padding: '10px 14px', borderRadius: '10px', fontSize: '0.85rem' }}>
+                <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm">
                   {errorMsg}
                 </div>
               )}
 
-              <div className="input-group">
-                <label>Category</label>
-                <select 
-                  value={categoryOption} 
-                  onChange={(e) => setCategoryOption(e.target.value)} 
-                  disabled={!!editingBudget}
-                >
-                  {allCategoryOptions.map((cat, idx) => (
-                    <option key={idx} value={cat}>{cat}</option>
-                  ))}
-                  <option value="__CUSTOM__">✨ + Add Custom Category...</option>
-                </select>
+              <div>
+                <label className="block font-label-sm text-on-surface-variant mb-1">Category</label>
+                <div className="relative">
+                  <select 
+                    value={categoryOption} 
+                    onChange={(e) => setCategoryOption(e.target.value)} 
+                    disabled={!!editingBudget}
+                    className="w-full appearance-none px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary pr-10 disabled:opacity-50"
+                  >
+                    {allCategoryOptions.map((cat, idx) => (
+                      <option key={idx} value={cat}>{cat}</option>
+                    ))}
+                    <option value="__CUSTOM__">✨ + Add Custom Category...</option>
+                  </select>
+                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+                </div>
               </div>
 
               {categoryOption === '__CUSTOM__' && !editingBudget && (
-                <div style={{ background: 'var(--badge-bg)', padding: '14px', borderRadius: '14px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div className="input-group">
-                    <label>New Custom Category Name</label>
+                <div className="p-3 bg-surface-container rounded-lg space-y-3">
+                  <div>
+                    <label className="block font-label-sm text-on-surface-variant mb-1">New Custom Category Name</label>
                     <input 
                       type="text" 
                       placeholder="e.g. Pets, Gaming, Crypto" 
                       value={customCategoryInput} 
                       onChange={(e) => setCustomCategoryInput(e.target.value)} 
                       required 
-                      autoFocus
+                      className="w-full px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-md focus:outline-none focus:border-secondary"
                     />
-                  </div>
-
-                  <div className="input-group">
-                    <label>Category Theme Color</label>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <input 
-                        type="color" 
-                        value={customCategoryColor} 
-                        onChange={(e) => setCustomCategoryColor(e.target.value)} 
-                        style={{ width: '44px', height: '36px', border: 'none', background: 'transparent', cursor: 'pointer' }}
-                      />
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{customCategoryColor}</span>
-                    </div>
                   </div>
                 </div>
               )}
 
-              <div className="input-group">
-                <label>Monthly Limit (₹)</label>
+              <div>
+                <label className="block font-label-sm text-on-surface-variant mb-1">Monthly Limit (₹)</label>
                 <input 
                   type="number" 
                   step="0.01"
@@ -258,16 +286,19 @@ export default function BudgetView() {
                   value={limit} 
                   onChange={(e) => setLimit(e.target.value)} 
                   required 
+                  className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
 
-              <button type="submit" className="btn btn-primary full-btn">
-                {editingBudget ? 'Update' : 'Save'}
-              </button>
+              <div className="pt-4">
+                <button type="submit" className="w-full py-3 bg-primary text-on-primary rounded-lg font-label-md hover:bg-primary-container transition-colors shadow-sm">
+                  {editingBudget ? 'Update Budget Limit' : 'Save Budget Limit'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

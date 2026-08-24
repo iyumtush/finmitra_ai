@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, RefreshCw, X, Sparkles, Paperclip, History } from 'lucide-react';
 import { aiApi } from '../../api/aiApi';
 import { transactionApi } from '../../api/transactionApi';
-import './ChatBotWidget.css';
 
 export default function ChatBotWidget({ isFloating = false, onClose }) {
   // Always start with a fresh new chat session
@@ -93,7 +91,6 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Convert file to base64
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result.split(',')[1];
@@ -114,9 +111,7 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
         
         let aiMsg;
         if (parsedData && parsedData.amount > 0 && parsedData.category) {
-          // Add transaction to DB
           await transactionApi.createTransaction(parsedData);
-          
           aiMsg = {
             sender: 'ai',
             text: `Successfully extracted and saved transaction!\nAmount: ₹${parsedData.amount}\nCategory: ${parsedData.category}\nDate: ${parsedData.date}`,
@@ -159,125 +154,139 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
   };
 
   const quickChips = [
-    "What is my total expense?",
-    "Which is my highest spend?",
+    "Total expense?",
+    "Highest spend?",
     "Am I over budget?",
-    "Give me savings advice"
+    "Savings advice"
   ];
 
   const displayedMessages = showHistory ? historyMessages : messages;
 
   return (
-    <div className={`chatbot-card ${isFloating ? 'floating-card' : ''}`}>
-      {/* Chatbot Header */}
-      <div className="chatbot-header">
-        <div className="bot-info">
-          <div className="bot-avatar">
-            <Bot size={20} color="#00E676" />
+    <div className={`flex flex-col bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden h-[600px] ${isFloating ? 'fixed bottom-4 right-4 w-80 md:w-96 shadow-lg z-50' : 'w-full'}`}>
+      {/* Header */}
+      <div className="bg-surface-container px-4 py-3 border-b border-outline-variant flex justify-between items-center shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center">
+            <span className="material-symbols-outlined text-[18px]">smart_toy</span>
           </div>
           <div>
-            <h4 className="bot-name">FinMitra AI Assistant</h4>
-            <span className="bot-status">
-              {showHistory ? 'Viewing Chat History' : '● Active Financial Advisor'}
+            <h4 className="font-label-md text-primary">FinMitra AI</h4>
+            <span className="font-label-sm text-secondary flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-secondary"></div>
+              {showHistory ? 'Viewing History' : 'Online'}
             </span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="flex gap-2 text-on-surface-variant">
           <button 
-            className={`close-chat-btn ${showHistory ? 'active' : ''}`} 
+            className={`p-1.5 rounded hover:bg-surface-container-high transition-colors ${showHistory ? 'text-secondary' : ''}`}
             onClick={() => setShowHistory(!showHistory)} 
-            title={showHistory ? "Back to Current Chat" : "View Chat History"}
+            title={showHistory ? "Back to Chat" : "History"}
           >
-            <History size={16} color={showHistory ? "#00E676" : "currentColor"} />
+            <span className="material-symbols-outlined text-[18px]">history</span>
           </button>
-          <button className="close-chat-btn" onClick={clearHistory} title="Clear Chat History">
-            <RefreshCw size={16} />
+          <button className="p-1.5 rounded hover:bg-surface-container-high transition-colors" onClick={clearHistory} title="Clear Chat">
+            <span className="material-symbols-outlined text-[18px]">delete</span>
           </button>
           {isFloating && onClose && (
-            <button className="close-chat-btn" onClick={onClose} title="Close Chat">
-              <X size={18} />
+            <button className="p-1.5 rounded hover:bg-surface-container-high transition-colors" onClick={onClose} title="Close">
+              <span className="material-symbols-outlined text-[18px]">close</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Messages Feed */}
-      <div className={`chatbot-messages ${showHistory ? 'history-view' : ''}`}>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-surface/50">
         {displayedMessages.length === 0 && showHistory && (
-          <div className="empty-history-text">No past conversations found.</div>
+          <div className="text-center text-on-surface-variant font-body-md mt-4">No past conversations found.</div>
         )}
         {displayedMessages.map((msg, idx) => (
-          <div key={idx} className={`message-bubble-wrapper ${msg.sender}`}>
-            <div className={`message-bubble ${msg.sender}`}>
-              <p className="message-text">{msg.text}</p>
-              <span className="message-time">{msg.time}</span>
+          <div key={idx} className={`flex flex-col max-w-[85%] ${msg.sender === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
+            <div className={`p-3 rounded-xl font-body-md shadow-sm whitespace-pre-wrap ${
+              msg.sender === 'user' 
+                ? 'bg-primary text-on-primary rounded-tr-sm' 
+                : 'bg-surface-container-lowest border border-outline-variant text-on-surface rounded-tl-sm'
+            }`}>
+              {msg.text}
             </div>
+            <span className="text-[10px] text-on-surface-variant mt-1 px-1">{msg.time}</span>
           </div>
         ))}
-
         {loading && !showHistory && (
-          <div className="message-bubble-wrapper ai">
-            <div className="message-bubble ai loading-bubble">
-              <RefreshCw size={16} className="spin-icon" /> Analyzing...
+          <div className="flex flex-col max-w-[85%] self-start items-start">
+            <div className="p-3 rounded-xl font-body-md bg-surface-container-lowest border border-outline-variant text-on-surface rounded-tl-sm flex items-center gap-2">
+              <span className="material-symbols-outlined animate-spin text-[16px] text-secondary">refresh</span>
+              Analyzing...
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Suggestion Chips */}
+      {/* Quick Chips */}
       {!showHistory && (
-        <div className="chat-chips-row">
+        <div className="px-3 pb-2 pt-1 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide">
           {quickChips.map((chip, idx) => (
             <button 
               key={idx} 
-              className="chat-chip"
+              className="whitespace-nowrap px-3 py-1.5 bg-surface-container border border-outline-variant rounded-full font-label-sm text-primary hover:bg-surface-container-high transition-colors"
               onClick={() => handleSend(chip)}
             >
-              <Sparkles size={12} /> {chip}
+              {chip}
             </button>
           ))}
         </div>
       )}
 
-      {/* Input Row */}
-      {!showHistory && (
-        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="chatbot-input-form">
+      {/* Input Area */}
+      {!showHistory ? (
+        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="p-3 bg-surface-container-lowest border-t border-outline-variant flex items-center gap-2 shrink-0">
           <input 
             type="file" 
             accept="image/*" 
             ref={fileInputRef} 
-            style={{ display: 'none' }} 
+            className="hidden" 
             onChange={handleFileUpload}
           />
           <button 
             type="button" 
-            className="upload-btn" 
             onClick={() => fileInputRef.current?.click()}
             disabled={loading}
+            className="w-10 h-10 flex items-center justify-center rounded-full text-secondary hover:bg-surface-container transition-colors disabled:opacity-50 shrink-0"
             title="Upload Receipt"
           >
-            <Paperclip size={18} />
+            <span className="material-symbols-outlined">attach_file</span>
           </button>
           
           <input 
             type="text" 
-            placeholder="Ask FinMitra AI about your finances..."
+            placeholder="Ask FinMitra AI..."
             value={inputMsg}
             onChange={(e) => setInputMsg(e.target.value)}
             disabled={loading}
+            className="flex-1 bg-surface-container-low border border-outline-variant rounded-full px-4 py-2 font-body-md text-on-surface focus:outline-none focus:border-secondary disabled:opacity-50"
           />
-          <button type="submit" className="send-btn" disabled={loading || !inputMsg.trim()}>
-            <Send size={16} />
+          
+          <button 
+            type="submit" 
+            disabled={loading || !inputMsg.trim()}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary-container transition-colors disabled:opacity-50 shrink-0"
+          >
+            <span className="material-symbols-outlined text-[18px]">send</span>
           </button>
         </form>
-      )}
-      
-      {showHistory && (
-        <div className="chatbot-input-form history-footer">
-          <p>You are viewing past conversations.</p>
-          <button onClick={() => setShowHistory(false)} className="return-btn">Return to Chat</button>
+      ) : (
+        <div className="p-4 bg-surface-container-lowest border-t border-outline-variant flex flex-col items-center shrink-0">
+          <p className="font-label-sm text-on-surface-variant mb-2">You are viewing past conversations.</p>
+          <button 
+            onClick={() => setShowHistory(false)} 
+            className="px-4 py-2 bg-secondary text-on-secondary rounded-lg font-label-md hover:bg-secondary-container transition-colors"
+          >
+            Return to Chat
+          </button>
         </div>
       )}
     </div>

@@ -1,64 +1,55 @@
 import React from 'react';
-import {
-  LayoutDashboard,
-  Receipt,
-  PieChart,
-  Sparkles,
-  LogOut
-} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import './Sidebar.css';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const { logout } = useAuth();
 
   const navItems = [
-    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { id: 'transactions', icon: Receipt, label: 'Transactions' },
-    { id: 'budget', icon: PieChart, label: 'Budget' },
-    { id: 'insights', icon: Sparkles, label: 'AI Insight' },
+    { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { id: 'transactions', icon: 'receipt_long', label: 'Transactions' },
+    { id: 'budget', icon: 'account_balance_wallet', label: 'Budget' },
+    { id: 'insights', icon: 'psychology', label: 'AI Insights' },
   ];
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-top">
-        {/* Brand Logo */}
-        <div className="sidebar-logo">
-          <div className="logo-icon-badge">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M4 18L10 6L14 13L20 4" stroke="#00E676" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <span className="logo-text">FinMitra</span>
-        </div>
-
-        {/* Main Nav Links */}
-        <nav className="sidebar-nav">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                className={`nav-link ${isActive ? 'active' : ''}`}
-                onClick={() => setActiveTab(item.id)}
-              >
-                <Icon size={18} className="nav-icon" />
-                <span className="nav-label">{item.label}</span>
-                {item.id === 'insights' && <span className="sparkle-badge">AI</span>}
-              </button>
-            );
-          })}
-        </nav>
+    <nav className="hidden md:flex flex-col h-screen sticky top-0 left-0 border-r border-outline-variant bg-surface-container-lowest dark:bg-surface-container-low shadow-sm dark:shadow-none w-[260px] shrink-0">
+      <div className="px-8 py-6 border-b border-outline-variant">
+        <h1 className="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">FinMitra</h1>
+        <p className="font-label-sm text-label-sm text-on-surface-variant uppercase mt-1">Institutional Grade</p>
       </div>
-
-      {/* Logout Link at Bottom */}
-      <div className="sidebar-bottom">
-        <button className="nav-link logout-link" onClick={logout}>
-          <LogOut size={18} className="nav-icon" />
-          <span className="nav-label">Log out</span>
+      <div className="flex-1 py-6 flex flex-col gap-2">
+        {navItems.map((item) => {
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-2 px-4 py-3 cursor-pointer transition-all ${
+                isActive
+                  ? 'border-l-4 border-secondary-container dark:border-secondary text-secondary dark:text-secondary-fixed-dim font-semibold bg-surface-container-low dark:bg-surface-container-high'
+                  : 'border-l-4 border-transparent text-on-surface-variant dark:text-on-surface-variant font-medium hover:bg-surface-container-high dark:hover:bg-surface-container-highest'
+              }`}
+            >
+              <span 
+                className="material-symbols-outlined" 
+                style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+              >
+                {item.icon}
+              </span>
+              <span className="font-body-md text-body-md">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="p-4 border-t border-outline-variant mt-auto">
+        <button 
+          onClick={logout}
+          className="w-full bg-surface-container-low text-on-surface-variant py-3 rounded-lg font-label-md text-label-md flex items-center justify-center gap-2 hover:bg-surface-container-high transition-colors"
+        >
+          <span className="material-symbols-outlined">logout</span>
+          Sign Out
         </button>
       </div>
-    </aside>
+    </nav>
   );
 }

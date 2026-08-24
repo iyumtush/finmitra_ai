@@ -7,9 +7,18 @@ export const ThemeProvider = ({ children }) => {
     return localStorage.getItem('finmitra_theme') || 'dark';
   });
 
+  const isDarkMode = theme === 'dark';
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('finmitra_theme', theme);
+    
+    // Also toggle the 'dark' class for Tailwind
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, [theme]);
 
   const toggleTheme = () => {
@@ -17,7 +26,7 @@ export const ThemeProvider = ({ children }) => {
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
