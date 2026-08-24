@@ -4,7 +4,7 @@ import { categoryApi } from '../api/categoryApi';
 import { aiApi } from '../api/aiApi';
 
 const BUILT_IN_CATEGORIES = [
-  'Food, Beverages & Groceries',
+  'Food',
   'Travel & Transport',
   'Online Shopping',
   'Rent',
@@ -27,7 +27,7 @@ export default function TransactionsView({ onNavigateTab }) {
 
   // Form Fields
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedCategoryOption, setSelectedCategoryOption] = useState('Food, Beverages & Groceries');
+  const [selectedCategoryOption, setSelectedCategoryOption] = useState('Food');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [customCategoryColor, setCustomCategoryColor] = useState('#00E676');
   const [note, setNote] = useState('');
@@ -62,7 +62,7 @@ export default function TransactionsView({ onNavigateTab }) {
   const openAddModal = () => {
     setEditingTx(null);
     setDate(new Date().toISOString().split('T')[0]);
-    setSelectedCategoryOption('Food, Beverages & Groceries');
+    setSelectedCategoryOption('Food');
     setCustomCategoryInput('');
     setCustomCategoryColor('#00E676');
     setNote('');
@@ -202,12 +202,12 @@ export default function TransactionsView({ onNavigateTab }) {
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-surface w-full h-full">
       <div className="max-w-[1440px] mx-auto h-full flex flex-col gap-6">
-        
+
         {/* Page Header & Filters */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h2 className="font-headline-lg text-headline-lg text-primary">Transactions</h2>
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            <button 
+            <button
               onClick={openAddModal}
               className="px-4 py-2 bg-primary text-on-primary rounded-DEFAULT font-label-md text-label-md hover:bg-primary-container transition-colors flex items-center gap-2"
             >
@@ -223,7 +223,7 @@ export default function TransactionsView({ onNavigateTab }) {
 
         {/* Content Layout: Bento Style */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full min-h-[500px]">
-          
+
           {/* Left: Data Table (Spans 8 cols) */}
           <div className="lg:col-span-8 flex flex-col gap-4 h-full">
             <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex-1 flex flex-col overflow-hidden h-full">
@@ -305,7 +305,7 @@ export default function TransactionsView({ onNavigateTab }) {
               </div>
 
               {!isScanning && !scannedData ? (
-                <div 
+                <div
                   onClick={() => fileInputRef.current?.click()}
                   className="border-2 border-dashed border-secondary rounded-lg p-6 flex flex-col items-center justify-center text-center mb-6 h-40 cursor-pointer hover:bg-surface-container-low transition-colors"
                 >
@@ -324,12 +324,12 @@ export default function TransactionsView({ onNavigateTab }) {
                 </div>
               ) : null}
 
-              <input 
-                type="file" 
-                accept="image/*" 
-                ref={fileInputRef} 
-                className="hidden" 
-                onChange={handleFileUpload} 
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileUpload}
               />
 
               {scannedData && (
@@ -337,11 +337,11 @@ export default function TransactionsView({ onNavigateTab }) {
                   <div>
                     <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 ml-1">Merchant</label>
                     <div className="relative">
-                      <input 
-                        className="w-full pl-3 pr-10 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary" 
-                        type="text" 
+                      <input
+                        className="w-full pl-3 pr-10 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary"
+                        type="text"
                         value={scannedData.merchant}
-                        onChange={(e) => setScannedData({...scannedData, merchant: e.target.value})}
+                        onChange={(e) => setScannedData({ ...scannedData, merchant: e.target.value })}
                       />
                       <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-secondary text-[16px]">check_circle</span>
                     </div>
@@ -350,23 +350,23 @@ export default function TransactionsView({ onNavigateTab }) {
                     <div>
                       <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 ml-1">Date</label>
                       <div className="relative">
-                        <input 
-                          className="w-full pl-3 pr-8 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary" 
-                          type="date" 
+                        <input
+                          className="w-full pl-3 pr-8 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary"
+                          type="date"
                           value={scannedData.date}
-                          onChange={(e) => setScannedData({...scannedData, date: e.target.value})}
+                          onChange={(e) => setScannedData({ ...scannedData, date: e.target.value })}
                         />
                       </div>
                     </div>
                     <div>
                       <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 ml-1">Amount</label>
                       <div className="relative">
-                        <input 
-                          className="w-full pl-3 pr-8 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary" 
-                          type="number" 
+                        <input
+                          className="w-full pl-3 pr-8 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary"
+                          type="number"
                           step="0.01"
                           value={scannedData.amount}
-                          onChange={(e) => setScannedData({...scannedData, amount: e.target.value})}
+                          onChange={(e) => setScannedData({ ...scannedData, amount: e.target.value })}
                         />
                       </div>
                     </div>
@@ -374,10 +374,10 @@ export default function TransactionsView({ onNavigateTab }) {
                   <div>
                     <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 ml-1">Suggested Category</label>
                     <div className="relative">
-                      <select 
+                      <select
                         className="w-full appearance-none pl-3 pr-10 py-2 bg-surface-container-lowest border border-secondary rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none ring-1 ring-secondary"
                         value={scannedData.category}
-                        onChange={(e) => setScannedData({...scannedData, category: e.target.value})}
+                        onChange={(e) => setScannedData({ ...scannedData, category: e.target.value })}
                       >
                         {allCategoryOptions.map(cat => (
                           <option key={cat} value={cat}>{cat}</option>
@@ -387,20 +387,20 @@ export default function TransactionsView({ onNavigateTab }) {
                       <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
                     </div>
                     <p className="text-xs text-on-surface-variant mt-1 ml-1 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[12px] text-secondary">info</span> 
+                      <span className="material-symbols-outlined text-[12px] text-secondary">info</span>
                       AI high confidence match
                     </p>
                   </div>
-                  
+
                   {/* CTA */}
                   <div className="mt-auto pt-4 border-t border-outline-variant flex gap-3">
-                    <button 
+                    <button
                       onClick={() => setScannedData(null)}
                       className="flex-1 py-2 border border-outline-variant text-on-surface-variant rounded-DEFAULT font-label-md text-label-md hover:bg-surface-container-low transition-colors"
                     >
                       Cancel
                     </button>
-                    <button 
+                    <button
                       onClick={saveScannedTransaction}
                       className="flex-[2] py-2 bg-primary text-on-primary rounded-DEFAULT font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm"
                     >
@@ -432,17 +432,17 @@ export default function TransactionsView({ onNavigateTab }) {
                   {errorMsg}
                 </div>
               )}
-              
+
               <div className="flex p-1 bg-surface-container-low rounded-lg">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setType('Expense')}
                   className={`flex-1 py-2 text-center rounded-md font-label-md transition-all ${type === 'Expense' ? 'bg-surface-container-lowest shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
                 >
                   Expense
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setType('Income')}
                   className={`flex-1 py-2 text-center rounded-md font-label-md transition-all ${type === 'Income' ? 'bg-surface-container-lowest shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
                 >
@@ -452,11 +452,11 @@ export default function TransactionsView({ onNavigateTab }) {
 
               <div>
                 <label className="block font-label-sm text-on-surface-variant mb-1">Date</label>
-                <input 
-                  type="date" 
-                  value={date} 
-                  onChange={(e) => setDate(e.target.value)} 
-                  required 
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
                   className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
@@ -464,8 +464,8 @@ export default function TransactionsView({ onNavigateTab }) {
               <div>
                 <label className="block font-label-sm text-on-surface-variant mb-1">Category</label>
                 <div className="relative">
-                  <select 
-                    value={selectedCategoryOption} 
+                  <select
+                    value={selectedCategoryOption}
                     onChange={(e) => setSelectedCategoryOption(e.target.value)}
                     className="w-full appearance-none px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary pr-10"
                   >
@@ -482,12 +482,12 @@ export default function TransactionsView({ onNavigateTab }) {
                 <div className="p-3 bg-surface-container rounded-lg space-y-3">
                   <div>
                     <label className="block font-label-sm text-on-surface-variant mb-1">New Category Name</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Pets" 
-                      value={customCategoryInput} 
-                      onChange={(e) => setCustomCategoryInput(e.target.value)} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="e.g. Pets"
+                      value={customCategoryInput}
+                      onChange={(e) => setCustomCategoryInput(e.target.value)}
+                      required
                       className="w-full px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-md focus:outline-none focus:border-secondary"
                     />
                   </div>
@@ -496,25 +496,25 @@ export default function TransactionsView({ onNavigateTab }) {
 
               <div>
                 <label className="block font-label-sm text-on-surface-variant mb-1">Description</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Grocery store" 
-                  value={note} 
-                  onChange={(e) => setNote(e.target.value)} 
-                  required 
+                <input
+                  type="text"
+                  placeholder="e.g. Grocery store"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  required
                   className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
 
               <div>
                 <label className="block font-label-sm text-on-surface-variant mb-1">Amount (₹)</label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  placeholder="e.g. 1500" 
-                  value={amount} 
-                  onChange={(e) => setAmount(e.target.value)} 
-                  required 
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g. 1500"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
                   className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>

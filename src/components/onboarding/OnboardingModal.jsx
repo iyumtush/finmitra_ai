@@ -12,7 +12,7 @@ export default function OnboardingModal({ user, onComplete }) {
   const [income, setIncome] = useState('50000');
   const [expenseCategory, setExpenseCategory] = useState('Rent');
   const [expenseAmount, setExpenseAmount] = useState('15000');
-  const [budgetCategory, setBudgetCategory] = useState('Food, Beverages & Groceries');
+  const [budgetCategory, setBudgetCategory] = useState('Food');
   const [budgetLimit, setBudgetLimit] = useState('8000');
 
   const handleNext = () => {
@@ -135,7 +135,7 @@ export default function OnboardingModal({ user, onComplete }) {
                 <label>Category</label>
                 <select value={expenseCategory} onChange={(e) => setExpenseCategory(e.target.value)}>
                   <option value="Rent">Rent</option>
-                  <option value="Food, Beverages & Groceries">Food, Beverages & Groceries</option>
+                  <option value="Food">Food</option>
                   <option value="Travel & Transport">Travel & Transport</option>
                   <option value="Online Shopping">Online Shopping</option>
                   <option value="Entertainment">Entertainment</option>
@@ -171,7 +171,7 @@ export default function OnboardingModal({ user, onComplete }) {
               <div className="input-group">
                 <label>Budget Category</label>
                 <select value={budgetCategory} onChange={(e) => setBudgetCategory(e.target.value)}>
-                  <option value="Food, Beverages & Groceries">Food, Beverages & Groceries</option>
+                  <option value="Food">Food</option>
                   <option value="Online Shopping">Online Shopping</option>
                   <option value="Travel & Transport">Travel & Transport</option>
                   <option value="Entertainment">Entertainment</option>

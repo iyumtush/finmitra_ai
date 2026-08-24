@@ -3,7 +3,7 @@ import { budgetApi } from '../api/budgetApi';
 import { categoryApi } from '../api/categoryApi';
 
 const BUILT_IN_CATEGORIES = [
-  'Food, Beverages & Groceries',
+  'Food',
   'Travel & Transport',
   'Online Shopping',
   'Rent',
@@ -20,8 +20,8 @@ export default function BudgetView() {
   const [showModal, setShowModal] = useState(false);
   const [editingBudget, setEditingBudget] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
-  
-  const [categoryOption, setCategoryOption] = useState('Food, Beverages & Groceries');
+
+  const [categoryOption, setCategoryOption] = useState('Food');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [customCategoryColor, setCustomCategoryColor] = useState('#00E676');
   const [limit, setLimit] = useState('');
@@ -48,7 +48,7 @@ export default function BudgetView() {
 
   const openAddModal = () => {
     setEditingBudget(null);
-    setCategoryOption('Food, Beverages & Groceries');
+    setCategoryOption('Food');
     setCustomCategoryInput('');
     setLimit('');
     setErrorMsg('');
@@ -124,11 +124,11 @@ export default function BudgetView() {
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-surface w-full h-full">
       <div className="max-w-[1440px] mx-auto h-full flex flex-col gap-6">
-        
+
         {/* Page Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h2 className="font-headline-lg text-headline-lg text-primary">Monthly Budgets</h2>
-          <button 
+          <button
             onClick={openAddModal}
             className="px-4 py-2 bg-primary text-on-primary rounded-DEFAULT font-label-md text-label-md hover:bg-primary-container transition-colors flex items-center gap-2"
           >
@@ -172,8 +172,8 @@ export default function BudgetView() {
                           </p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => openEditModal(b)} 
+                      <button
+                        onClick={() => openEditModal(b)}
                         className="text-on-surface-variant hover:text-secondary p-1"
                         title="Edit Budget Limit"
                       >
@@ -183,17 +183,17 @@ export default function BudgetView() {
 
                     <div className="mb-2 flex justify-between items-end">
                       <div>
-                        <span className="font-headline-md text-primary">₹{spent.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                        <span className="font-headline-md text-primary">₹{spent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                       </div>
                       <span className="font-label-sm text-on-surface-variant">
-                        of ₹{limitVal.toLocaleString('en-IN', {maximumFractionDigits: 0})}
+                        of ₹{limitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                       </span>
                     </div>
 
                     {/* Progress Bar */}
                     <div className="w-full bg-surface-container-high rounded-full h-2 mb-3 overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-error' : 'bg-secondary'}`} 
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-error' : 'bg-secondary'}`}
                         style={{ width: `${pct}%` }}
                       ></div>
                     </div>
@@ -203,12 +203,12 @@ export default function BudgetView() {
                       {isOver ? (
                         <>
                           <span className="material-symbols-outlined text-[16px] text-error">error</span>
-                          <span className="font-label-sm text-error">Over budget by ₹{diff.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                          <span className="font-label-sm text-error">Over budget by ₹{diff.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                         </>
                       ) : (
                         <>
                           <span className="material-symbols-outlined text-[16px] text-secondary">check_circle</span>
-                          <span className="font-label-sm text-secondary">₹{diff.toLocaleString('en-IN', {maximumFractionDigits: 0})} remaining</span>
+                          <span className="font-label-sm text-secondary">₹{diff.toLocaleString('en-IN', { maximumFractionDigits: 0 })} remaining</span>
                         </>
                       )}
                     </div>
@@ -232,7 +232,7 @@ export default function BudgetView() {
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveBudget} className="p-6 space-y-4">
               {errorMsg && (
                 <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm">
@@ -243,9 +243,9 @@ export default function BudgetView() {
               <div>
                 <label className="block font-label-sm text-on-surface-variant mb-1">Category</label>
                 <div className="relative">
-                  <select 
-                    value={categoryOption} 
-                    onChange={(e) => setCategoryOption(e.target.value)} 
+                  <select
+                    value={categoryOption}
+                    onChange={(e) => setCategoryOption(e.target.value)}
                     disabled={!!editingBudget}
                     className="w-full appearance-none px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary pr-10 disabled:opacity-50"
                   >
@@ -262,12 +262,12 @@ export default function BudgetView() {
                 <div className="p-3 bg-surface-container rounded-lg space-y-3">
                   <div>
                     <label className="block font-label-sm text-on-surface-variant mb-1">New Custom Category Name</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Pets, Gaming, Crypto" 
-                      value={customCategoryInput} 
-                      onChange={(e) => setCustomCategoryInput(e.target.value)} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="e.g. Pets, Gaming, Crypto"
+                      value={customCategoryInput}
+                      onChange={(e) => setCustomCategoryInput(e.target.value)}
+                      required
                       className="w-full px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-md focus:outline-none focus:border-secondary"
                     />
                   </div>
@@ -276,13 +276,13 @@ export default function BudgetView() {
 
               <div>
                 <label className="block font-label-sm text-on-surface-variant mb-1">Monthly Limit (₹)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   step="0.01"
-                  placeholder="e.g. 5000" 
-                  value={limit} 
-                  onChange={(e) => setLimit(e.target.value)} 
-                  required 
+                  placeholder="e.g. 5000"
+                  value={limit}
+                  onChange={(e) => setLimit(e.target.value)}
+                  required
                   className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
