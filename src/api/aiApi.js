@@ -16,12 +16,12 @@ const callGeminiREST = async (prompt, isJson = false) => {
   const key = getGeminiKey();
   if (!key) return null;
 
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+  const models = ['gemini-flash-latest', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
   let lastError = null;
 
   for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       const body = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: isJson
@@ -31,25 +31,15 @@ const callGeminiREST = async (prompt, isJson = false) => {
 
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key
+        },
         body: JSON.stringify(body)
       });
 
       if (!res.ok) {
-        // Try v1beta if v1 fails
-        const urlBeta = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-        const resBeta = await fetch(urlBeta, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        if (!resBeta.ok) {
-          lastError = new Error(`Model ${model} returned ${res.status} / ${resBeta.status}`);
-          continue;
-        }
-        const dataBeta = await resBeta.json();
-        const textBeta = dataBeta?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textBeta) return textBeta;
+        lastError = new Error(`Model ${model} returned ${res.status}`);
         continue;
       }
 
