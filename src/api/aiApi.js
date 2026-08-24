@@ -111,11 +111,13 @@ const callGrokREST = async (prompt, isJson = false, base64Image = null, mimeType
     }
     content.push({ type: "text", text: prompt });
 
+    const contentStrOrArr = base64Image ? content : prompt;
+
     const body = {
       messages: [
         {
           role: "user",
-          content: content
+          content: contentStrOrArr
         }
       ],
       model: base64Image ? "grok-vision-beta" : "grok-beta",
