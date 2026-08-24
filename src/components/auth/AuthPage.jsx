@@ -266,10 +266,6 @@ export default function AuthPage() {
                 <img className="w-5 h-5 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-f_Ya413zbx1Pt9SRRAMUvgcveMR5XLZocaAFIX9GC-mnaCaZQ-FBY22Yy-1LZvNzUBd5hLvd7CWMQToEf4Frclx945aFtXv8GAH3cOEpF5u_H0W3CIy7BWj2jAPNXBIWxG9_OI3fUtbSmfym4dbWsdaW9ZuvzRxR8JmgXgmCAh5MOIWs0sgi005-ZboT_lI-PbHEsNnh8j2XFp49yDz0uyNmCmb8LRDqXzfBP-_4hV7IHarAp3LMGQ" alt="Google" />
                 Google
               </button>
-              <button className="w-full h-12 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md flex items-center justify-center gap-3 hover:bg-surface-container-low transition-colors">
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>file_download</span>
-                Apple
-              </button>
             </div>
           </div>
 

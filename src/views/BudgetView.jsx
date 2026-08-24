@@ -3,17 +3,14 @@ import { budgetApi } from '../api/budgetApi';
 import { categoryApi } from '../api/categoryApi';
 
 const BUILT_IN_CATEGORIES = [
-  'To People',
-  'Health',
-  'Food, Beverages and Groceries',
+  'Food, Beverages & Groceries',
   'Travel & Transport',
   'Online Shopping',
   'Rent',
   'Utilities',
   'Entertainment',
-  'Food',
-  'Shopping',
-  'Transport'
+  'Health',
+  'To People'
 ];
 
 export default function BudgetView() {
@@ -24,7 +21,7 @@ export default function BudgetView() {
   const [editingBudget, setEditingBudget] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   
-  const [categoryOption, setCategoryOption] = useState('Food, Beverages and Groceries');
+  const [categoryOption, setCategoryOption] = useState('Food, Beverages & Groceries');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [customCategoryColor, setCustomCategoryColor] = useState('#00E676');
   const [limit, setLimit] = useState('');
@@ -51,7 +48,7 @@ export default function BudgetView() {
 
   const openAddModal = () => {
     setEditingBudget(null);
-    setCategoryOption('Food, Beverages and Groceries');
+    setCategoryOption('Food, Beverages & Groceries');
     setCustomCategoryInput('');
     setLimit('');
     setErrorMsg('');

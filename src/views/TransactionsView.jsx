@@ -4,14 +4,14 @@ import { categoryApi } from '../api/categoryApi';
 import { aiApi } from '../api/aiApi';
 
 const BUILT_IN_CATEGORIES = [
-  'To People',
-  'Health',
-  'Food, Beverages and Groceries',
+  'Food, Beverages & Groceries',
   'Travel & Transport',
   'Online Shopping',
   'Rent',
   'Utilities',
   'Entertainment',
+  'Health',
+  'To People',
   'Salary'
 ];
 
@@ -27,7 +27,7 @@ export default function TransactionsView({ onNavigateTab }) {
 
   // Form Fields
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedCategoryOption, setSelectedCategoryOption] = useState('Food, Beverages and Groceries');
+  const [selectedCategoryOption, setSelectedCategoryOption] = useState('Food, Beverages & Groceries');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [customCategoryColor, setCustomCategoryColor] = useState('#00E676');
   const [note, setNote] = useState('');
@@ -62,7 +62,7 @@ export default function TransactionsView({ onNavigateTab }) {
   const openAddModal = () => {
     setEditingTx(null);
     setDate(new Date().toISOString().split('T')[0]);
-    setSelectedCategoryOption('Food, Beverages and Groceries');
+    setSelectedCategoryOption('Food, Beverages & Groceries');
     setCustomCategoryInput('');
     setCustomCategoryColor('#00E676');
     setNote('');

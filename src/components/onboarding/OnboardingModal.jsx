@@ -12,7 +12,7 @@ export default function OnboardingModal({ user, onComplete }) {
   const [income, setIncome] = useState('50000');
   const [expenseCategory, setExpenseCategory] = useState('Rent');
   const [expenseAmount, setExpenseAmount] = useState('15000');
-  const [budgetCategory, setBudgetCategory] = useState('Food');
+  const [budgetCategory, setBudgetCategory] = useState('Food, Beverages & Groceries');
   const [budgetLimit, setBudgetLimit] = useState('8000');
 
   const handleNext = () => {
@@ -104,15 +104,15 @@ export default function OnboardingModal({ user, onComplete }) {
               </div>
               <h3>What is your estimated monthly income?</h3>
               <p className="step-desc">Enter your expected monthly salary or total incoming revenue.</p>
-              
+
               <div className="input-group">
                 <label>Monthly Income (₹)</label>
-                <input 
-                  type="number" 
-                  placeholder="e.g. 50000" 
-                  value={income} 
-                  onChange={(e) => setIncome(e.target.value)} 
-                  required 
+                <input
+                  type="number"
+                  placeholder="e.g. 50000"
+                  value={income}
+                  onChange={(e) => setIncome(e.target.value)}
+                  required
                   autoFocus
                 />
               </div>
@@ -135,21 +135,21 @@ export default function OnboardingModal({ user, onComplete }) {
                 <label>Category</label>
                 <select value={expenseCategory} onChange={(e) => setExpenseCategory(e.target.value)}>
                   <option value="Rent">Rent</option>
-                  <option value="Food">Food</option>
-                  <option value="Transport">Transport</option>
-                  <option value="Shopping">Shopping</option>
+                  <option value="Food, Beverages & Groceries">Food, Beverages & Groceries</option>
+                  <option value="Travel & Transport">Travel & Transport</option>
+                  <option value="Online Shopping">Online Shopping</option>
                   <option value="Entertainment">Entertainment</option>
                 </select>
               </div>
 
               <div className="input-group">
                 <label>Amount (₹)</label>
-                <input 
-                  type="number" 
-                  placeholder="e.g. 15000" 
-                  value={expenseAmount} 
-                  onChange={(e) => setExpenseAmount(e.target.value)} 
-                  required 
+                <input
+                  type="number"
+                  placeholder="e.g. 15000"
+                  value={expenseAmount}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  required
                   autoFocus
                 />
               </div>
@@ -171,9 +171,9 @@ export default function OnboardingModal({ user, onComplete }) {
               <div className="input-group">
                 <label>Budget Category</label>
                 <select value={budgetCategory} onChange={(e) => setBudgetCategory(e.target.value)}>
-                  <option value="Food">Food</option>
-                  <option value="Shopping">Shopping</option>
-                  <option value="Transport">Transport</option>
+                  <option value="Food, Beverages & Groceries">Food, Beverages & Groceries</option>
+                  <option value="Online Shopping">Online Shopping</option>
+                  <option value="Travel & Transport">Travel & Transport</option>
                   <option value="Entertainment">Entertainment</option>
                   <option value="Rent">Rent</option>
                 </select>
@@ -181,12 +181,12 @@ export default function OnboardingModal({ user, onComplete }) {
 
               <div className="input-group">
                 <label>Monthly Limit (₹)</label>
-                <input 
-                  type="number" 
-                  placeholder="e.g. 8000" 
-                  value={budgetLimit} 
-                  onChange={(e) => setBudgetLimit(e.target.value)} 
-                  required 
+                <input
+                  type="number"
+                  placeholder="e.g. 8000"
+                  value={budgetLimit}
+                  onChange={(e) => setBudgetLimit(e.target.value)}
+                  required
                   autoFocus
                 />
               </div>
