@@ -16,7 +16,7 @@ const callGeminiREST = async (prompt, isJson = false) => {
   const key = getGeminiKey();
   if (!key) return null;
 
-  const models = ['gemini-flash-latest', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+  const models = ['gemini-3.5-flash', 'gemini-flash-latest'];
   let lastError = null;
 
   for (const model of models) {
