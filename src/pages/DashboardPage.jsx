@@ -23,6 +23,9 @@ export default function DashboardPage() {
   }, [user]);
 
   const handleOnboardingComplete = () => {
+    if (user?.email) {
+      localStorage.setItem(`finmitra_onboarded_${user.email}`, 'true');
+    }
     setIsOnboarded(true);
     // Refresh tab state to reload dashboard
     setActiveTab('dashboard');

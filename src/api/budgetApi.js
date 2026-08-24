@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { transactionApi } from './transactionApi';
 
 export const budgetApi = {
   getBudgets: async () => {
@@ -7,9 +8,28 @@ export const budgetApi = {
       .select('*');
 
     if (error) throw error;
+    
+    // Fetch transactions to calculate spent amounts dynamically
+    let transactions = [];
+    try {
+      transactions = await transactionApi.getTransactions();
+    } catch(e) {
+      console.warn("Failed to fetch transactions for budget calculation", e);
+    }
+    
+    // Sum expenses per category
+    const spentPerCategory = {};
+    transactions.forEach(t => {
+      if (t.type === 'EXPENSE') {
+        const cat = t.category;
+        spentPerCategory[cat] = (spentPerCategory[cat] || 0) + Number(t.amount || 0);
+      }
+    });
+
     return (data || []).map(b => ({
       ...b,
-      limitAmount: b.limit_amount
+      limitAmount: b.limit_amount,
+      spentAmount: spentPerCategory[b.category] || 0
     }));
   },
 
