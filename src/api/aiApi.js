@@ -27,7 +27,7 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
   const keys = getGeminiKeys();
   if (!keys.length) return null;
 
-  const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+  const models = ['antigravity-preview-05-2026', 'deep-research-preview-04-2026', 'gemini-1.5-flash', 'gemini-1.5-pro'];
   let lastError = null;
 
   // Try each API key in sequence
