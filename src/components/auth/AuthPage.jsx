@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,6 +13,7 @@ export default function AuthPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   const { login, signup, loading, error, isConfigured } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -114,6 +116,17 @@ export default function AuthPage() {
           </div>
           <span className="font-headline-md text-headline-md text-primary tracking-tight">FinMitra</span>
         </div>
+
+        {/* Theme Toggle Button */}
+        <button 
+          onClick={toggleTheme}
+          className="absolute top-8 right-6 md:right-12 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors z-50"
+          title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} Mode`}
+        >
+          <span className="material-symbols-outlined text-[20px]" style={{fontVariationSettings: "'FILL' 1"}}>
+            {isDarkMode ? 'light_mode' : 'dark_mode'}
+          </span>
+        </button>
         
         <div className="w-full max-w-md">
           {/* Auth Card */}
