@@ -127,6 +127,29 @@ export default function DashboardView({ onNavigateTab }) {
     realTrendData.push({ name: 'Week 5', Spend: weeksMap['Week 5'] });
   }
 
+  // Daily Aggregation
+  let dailyTrendData = [];
+  const dailyMap = {};
+  
+  expenseTx.forEach(t => {
+    if (!t.date) return;
+    const d = new Date(t.date);
+    if (isNaN(d.getTime())) return;
+    const dateStr = d.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+    if (!dailyMap[dateStr]) dailyMap[dateStr] = 0;
+    dailyMap[dateStr] += Number(t.amount || 0);
+  });
+  
+  // Sort daily data by actual date chronologically
+  dailyTrendData = Object.keys(dailyMap)
+    .sort((a, b) => new Date(a + ` ${new Date().getFullYear()}`) - new Date(b + ` ${new Date().getFullYear()}`))
+    .map(key => ({
+      name: key,
+      Spend: dailyMap[key]
+    }));
+
+  const chartData = viewMode === 'weeks' ? realTrendData : dailyTrendData;
+
   // Get recent 5 transactions
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
@@ -219,23 +242,39 @@ export default function DashboardView({ onNavigateTab }) {
         {/* Large Chart Area */}
         <div className="lg:col-span-2 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm min-h-[400px] flex flex-col">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-headline-md text-headline-md text-primary">Monthly Spends</h3>
-            <select 
-              className="bg-surface-container-low border border-outline-variant rounded-lg px-3 py-1 font-label-md text-label-md text-on-surface-variant focus:ring-secondary focus:border-secondary outline-none"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-            >
-              <option value="All Months">All Months</option>
-              <option value={getCurrentMonthName()}>{getCurrentMonthName()}</option>
-            </select>
+            <h3 className="font-headline-md text-headline-md text-primary">Spends Overview</h3>
+            <div className="flex gap-4 items-center">
+              <div className="flex bg-surface-container-low p-1 rounded-lg">
+                <button
+                  onClick={() => setViewMode('weeks')}
+                  className={`px-3 py-1 font-label-md text-label-md rounded-md transition-all ${viewMode === 'weeks' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setViewMode('days')}
+                  className={`px-3 py-1 font-label-md text-label-md rounded-md transition-all ${viewMode === 'days' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+                >
+                  Daily
+                </button>
+              </div>
+              <select 
+                className="bg-surface-container-low border border-outline-variant rounded-lg px-3 py-1 font-label-md text-label-md text-on-surface-variant focus:ring-secondary focus:border-secondary outline-none h-8"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              >
+                <option value="All Months">All Months</option>
+                <option value={getCurrentMonthName()}>{getCurrentMonthName()}</option>
+              </select>
+            </div>
           </div>
           
           <div className="flex-1 w-full relative min-h-[250px]">
             {loading ? (
               <div className="absolute inset-0 flex items-center justify-center text-on-surface-variant">Loading...</div>
-            ) : realTrendData.some(item => item.Spend > 0) ? (
+            ) : chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={realTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} tick={{ fill: 'currentColor', fontSize: 12 }} width={60} />
                   <Tooltip 
@@ -244,7 +283,7 @@ export default function DashboardView({ onNavigateTab }) {
                     itemStyle={{ color: 'var(--on-surface)' }}
                     formatter={(value) => `₹${Number(value).toLocaleString('en-IN')}`} 
                   />
-                  <Bar dataKey="Spend" fill="#00677e" radius={[4, 4, 0, 0]} barSize={40} />
+                  <Bar dataKey="Spend" fill="#00677e" radius={[4, 4, 0, 0]} barSize={viewMode === 'weeks' ? 40 : 20} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
