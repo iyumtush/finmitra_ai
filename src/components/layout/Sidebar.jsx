@@ -15,7 +15,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     <nav className="hidden md:flex flex-col h-screen sticky top-0 left-0 border-r border-outline-variant bg-surface-container-lowest dark:bg-surface-container-low shadow-sm dark:shadow-none w-[260px] shrink-0">
       <div className="px-8 py-6 border-b border-outline-variant">
         <h1 className="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">FinMitra</h1>
-        <p className="font-label-sm text-label-sm text-on-surface-variant uppercase mt-1">Institutional Grade</p>
+        <p className="font-label-sm text-[10px] leading-tight text-on-surface-variant uppercase mt-1">AI-Financial Adviser &<br/>Personal Wealth Management Platform</p>
       </div>
       <div className="flex-1 py-6 flex flex-col gap-2">
         {navItems.map((item) => {
