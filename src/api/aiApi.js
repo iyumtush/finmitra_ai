@@ -2,69 +2,79 @@ import { transactionApi } from './transactionApi';
 import { budgetApi } from './budgetApi';
 
 // ─── Gemini REST API (bypasses npm package v1beta issues) ───
-const getGeminiKey = () => {
+const getGeminiKeys = () => {
   const raw = (
     import.meta.env.VITE_GEMINI_API_KEY ||
     import.meta.env.NEXT_PUBLIC_GEMINI_API_KEY ||
     import.meta.env.GEMINI_API_KEY ||
     ''
   ).trim();
-  return raw.replace(/^["']|["']$/g, '').trim();
+  // Support multiple keys separated by commas
+  return raw.replace(/^["']|["']$/g, '').split(',').map(k => k.trim()).filter(Boolean);
 };
 
 const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeType = 'image/jpeg') => {
-  const key = getGeminiKey();
-  if (!key) return null;
+  const keys = getGeminiKeys();
+  if (!keys.length) return null;
 
   const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
   let lastError = null;
 
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-      
-      const parts = [{ text: prompt }];
-      if (base64Image) {
-        parts.push({
-          inline_data: {
-            mime_type: mimeType,
-            data: base64Image
-          }
+  // Try each API key in sequence
+  for (const key of keys) {
+    // Try each model for the current key
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        
+        const parts = [{ text: prompt }];
+        if (base64Image) {
+          parts.push({
+            inline_data: {
+              mime_type: mimeType,
+              data: base64Image
+            }
+          });
+        }
+
+        const body = {
+          contents: [{ parts }],
+          generationConfig: isJson
+            ? { responseMimeType: 'application/json', temperature: 0.7 }
+            : { temperature: 0.7 }
+        };
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          lastError = new Error(`Key ending in ${key.slice(-4)} with Model ${model} returned ${res.status}`);
+          // If it's a 429 (Too Many Requests), break inner model loop and try next API KEY
+          if (res.status === 429) {
+            break; 
+          }
+          // Otherwise, try next model with same key
+          continue;
+        }
+
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+      } catch (err) {
+        lastError = err;
       }
-
-      const body = {
-        contents: [{ parts }],
-        generationConfig: isJson
-          ? { responseMimeType: 'application/json', temperature: 0.7 }
-          : { temperature: 0.7 }
-      };
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-goog-api-key': key
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        lastError = new Error(`Model ${model} returned ${res.status}`);
-        continue;
-      }
-
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
-    } catch (err) {
-      lastError = err;
     }
   }
 
