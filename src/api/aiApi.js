@@ -3,14 +3,29 @@ import { budgetApi } from './budgetApi';
 
 // ─── Gemini REST API (bypasses npm package v1beta issues) ───
 const getGeminiKeys = () => {
+  const keys = [];
+  
+  // 1. Collect sequentially numbered keys (e.g., VITE_GEMINI_API_KEY_1, VITE_GEMINI_API_KEY_2...)
+  for (let i = 1; i <= 10; i++) {
+    const k = import.meta.env[`VITE_GEMINI_API_KEY_${i}`];
+    if (k) keys.push(k.trim().replace(/^["']|["']$/g, ''));
+  }
+  
+  // 2. Also collect the primary key or comma-separated list
   const raw = (
     import.meta.env.VITE_GEMINI_API_KEY ||
     import.meta.env.NEXT_PUBLIC_GEMINI_API_KEY ||
     import.meta.env.GEMINI_API_KEY ||
     ''
   ).trim();
-  // Support multiple keys separated by commas
-  return raw.replace(/^["']|["']$/g, '').split(',').map(k => k.trim()).filter(Boolean);
+  
+  if (raw) {
+    const primaryKeys = raw.replace(/^["']|["']$/g, '').split(',').map(k => k.trim()).filter(Boolean);
+    keys.push(...primaryKeys);
+  }
+  
+  // Deduplicate
+  return [...new Set(keys)];
 };
 
 const getGrokKey = () => {
@@ -27,7 +42,7 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
   const keys = getGeminiKeys();
   if (!keys.length) return null;
 
-  const models = ['antigravity-preview-05-2026', 'deep-research-preview-04-2026', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  const models = ['gemini-3.5-flash', 'gemini-3.6-flash'];
   let lastError = null;
 
   // Try each API key in sequence
@@ -60,8 +75,7 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
         const res = await fetch(url, {
           method: 'POST',
           headers: { 
-            'Content-Type': 'application/json',
-            'x-goog-api-key': key
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(body),
           signal: controller.signal
@@ -89,72 +103,6 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
   }
 
   console.warn('All Gemini REST calls failed:', lastError?.message || lastError);
-  return null;
-};
-
-// ─── Grok REST API (Fallback) ───
-const callGrokREST = async (prompt, isJson = false, base64Image = null, mimeType = 'image/jpeg') => {
-  const key = getGrokKey();
-  if (!key) return null;
-
-  try {
-    const url = 'https://api.x.ai/v1/chat/completions';
-    const content = [];
-
-    if (base64Image) {
-      content.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${mimeType};base64,${base64Image}`
-        }
-      });
-    }
-    content.push({ type: "text", text: prompt });
-
-    const contentStrOrArr = base64Image ? content : prompt;
-
-    const body = {
-      messages: [
-        {
-          role: "user",
-          content: contentStrOrArr
-        }
-      ],
-      model: base64Image ? "grok-2-vision-latest" : "grok-2-latest",
-      stream: false,
-      temperature: 0.7
-    };
-
-    if (isJson) {
-      // Grok may not support strict response_format yet, but we prompt it.
-      // We will just parse the string safely.
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      throw new Error(`Grok returned ${res.status}`);
-    }
-
-    const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content;
-    if (text) return text;
-  } catch (err) {
-    console.warn('Grok REST call failed:', err.message);
-  }
   return null;
 };
 
@@ -400,21 +348,30 @@ export const aiApi = {
 
       // Try Gemini REST API for richer insights
       try {
-        const prompt = `You are FinMitra AI Assistant, an expert wealth manager. Analyze this user financial data:
-Income: ₹${ctx.totalIncome}, Expenses: ₹${ctx.totalExpense}, Net Savings: ₹${ctx.netSavings}, Savings Rate: ${ctx.savingsRate}%
-Recent Transactions: ${JSON.stringify(transactions.slice(0, 10))}
-Budgets: ${JSON.stringify(budgets)}
+        const prompt = `You are FinMitra AI Assistant, an expert personal finance and wealth management advisor. Analyze the following live financial data for the user:
+- Total Income: ₹${ctx.totalIncome}
+- Total Expenses: ₹${ctx.totalExpense}
+- Net Savings: ₹${ctx.netSavings}
+- Savings Rate: ${ctx.savingsRate}%
+- Top Expense Category: ${ctx.topCat} (₹${ctx.topCatAmount})
+- Recent Transactions: ${JSON.stringify(transactions.slice(0, 10))}
+- Active Budgets: ${JSON.stringify(budgets)}
 
-Respond ONLY with a valid JSON object:
-{"monthlySummary":"2-sentence financial summary","savingSuggestions":["tip1","tip2","tip3"],"growthIdea":"investment strategy"}`;
+Provide a highly personalized, flexible, and actionable financial insight report. Do not use generic advice; reference their actual numbers, budgets, and spending habits directly.
+
+Respond ONLY with a perfectly formatted JSON object containing EXACTLY these keys:
+{
+  "monthlySummary": "A highly detailed, encouraging, and analytical summary (3-4 sentences) of their current month's financial health, mentioning their specific numbers and biggest spending areas.",
+  "savingSuggestions": [
+    "A highly specific, actionable saving tip based on their top expense category or budget limits",
+    "A personalized suggestion on how to improve their current savings rate of ${ctx.savingsRate}%",
+    "A practical daily/weekly habit change tailored to their recent transactions"
+  ],
+  "growthIdea": "A specific wealth-building or investment strategy (e.g., SIP, FD, or debt payoff) based on their net savings of ₹${ctx.netSavings}. Be specific about where they should put this surplus."
+}`;
 
         let rawText = await callGeminiREST(prompt, true);
-        
-        // Fallback to Grok if Gemini fails
-        if (!rawText) {
-          console.warn('Switching to Grok API for insights...');
-          rawText = await callGrokREST(prompt, true);
-        }
+
 
         if (rawText) {
           const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -495,12 +452,7 @@ Instructions:
 6. DO NOT use any emojis. Use plain text only. Keep responses concise but comprehensive.`;
 
       let aiResponse = await callGeminiREST(prompt, false);
-      
-      // Fallback to Grok if Gemini fails
-      if (!aiResponse) {
-        console.warn('Switching to Grok API for chat...');
-        aiResponse = await callGrokREST(prompt, false);
-      }
+
 
       if (aiResponse) {
         return { response: aiResponse, reply: aiResponse };
@@ -527,12 +479,7 @@ Make sure the output is perfectly valid JSON without any markdown formatting wra
 
     try {
       let aiResponse = await callGeminiREST(prompt, true, base64Image, mimeType);
-      
-      // Fallback to Grok Vision if Gemini fails
-      if (!aiResponse) {
-        console.warn('Switching to Grok Vision API for receipt parsing...');
-        aiResponse = await callGrokREST(prompt, true, base64Image, mimeType);
-      }
+
 
       if (aiResponse) {
         // Strip markdown backticks if Gemini still added them despite responseMimeType=application/json
