@@ -94,23 +94,50 @@ const smartFinancialAdvisor = (message, ctx) => {
   const text = message.toLowerCase().trim();
   const { totalIncome, totalExpense, netSavings, savingsRate, catSpends, sortedCats, topCat, topCatAmount } = ctx;
 
-  // Extract ALL numbers from the query
-  const numberMatches = text.match(/[\d,]+/g);
-  const numbers = numberMatches ? numberMatches.map(n => parseInt(n.replace(/,/g, ''), 10)).filter(n => n > 0) : [];
-  const mainAmount = numbers[0] || 0;
+  // ── Smart Amount Parser (handles 75k, 1.5lakh, 2cr, ₹50000, 30K, etc.) ──
+  const parseAmount = (str) => {
+    // Match patterns like: 75k, 1.5k, 2.5lakh, 1lakh, 2cr, 50000, 1,00,000, ₹5000
+    const patterns = [
+      { regex: /([\d,.]+)\s*(?:cr|crore|crores)/i, multiplier: 10000000 },
+      { regex: /([\d,.]+)\s*(?:lakh|lakhs|lac|lacs|l)\b/i, multiplier: 100000 },
+      { regex: /([\d,.]+)\s*(?:k|K|thousand|thousands)\b/i, multiplier: 1000 },
+      { regex: /₹\s*([\d,.]+)/i, multiplier: 1 },
+      { regex: /rs\.?\s*([\d,.]+)/i, multiplier: 1 },
+      { regex: /rupees?\s*([\d,.]+)/i, multiplier: 1 },
+    ];
 
-  // Extract time periods (months/years)
+    for (const { regex, multiplier } of patterns) {
+      const match = str.match(regex);
+      if (match) {
+        const num = parseFloat(match[1].replace(/,/g, ''));
+        if (num > 0) return Math.round(num * multiplier);
+      }
+    }
+
+    // Fallback: find any standalone large number (e.g. "50000", "1,00,000")
+    const plainNumbers = str.match(/\b[\d,]{3,}\b/g);
+    if (plainNumbers) {
+      for (const pn of plainNumbers) {
+        const val = parseInt(pn.replace(/,/g, ''), 10);
+        if (val >= 100) return val; // Only use numbers >= 100 as amounts
+      }
+    }
+
+    return 0;
+  };
+
+  const targetAmount = parseAmount(text);
+
+  // ── Smart Time Parser (handles months, years, weeks, days) ──
   let months = 0;
-  const monthMatch = text.match(/(\d+)\s*(month|months)/i);
-  const yearMatch = text.match(/(\d+)\s*(year|years)/i);
-  if (monthMatch) months = parseInt(monthMatch[1]);
-  if (yearMatch) months = parseInt(yearMatch[1]) * 12;
-
-  // Detect lakh/crore multipliers
-  let targetAmount = mainAmount;
-  if (text.includes('lakh') || text.includes('lac')) targetAmount = mainAmount * 100000;
-  if (text.includes('crore') || text.includes('cr')) targetAmount = mainAmount * 10000000;
-  if (targetAmount === mainAmount && mainAmount > 0) targetAmount = mainAmount;
+  const weekMatch = text.match(/([\d.]+)\s*(?:week|weeks|wk|wks)/i);
+  const dayMatch = text.match(/([\d.]+)\s*(?:day|days)/i);
+  const monthMatch = text.match(/([\d.]+)\s*(?:month|months|mo)/i);
+  const yearMatch = text.match(/([\d.]+)\s*(?:year|years|yr|yrs)/i);
+  if (weekMatch) months = parseFloat(weekMatch[1]) / 4.33; // weeks to months
+  if (dayMatch) months = parseFloat(dayMatch[1]) / 30; // days to months
+  if (monthMatch) months = parseFloat(monthMatch[1]);
+  if (yearMatch) months = parseFloat(yearMatch[1]) * 12;
 
   // ── Non-finance filter ──
   const nonFinanceWords = ['weather', 'recipe', 'movie', 'game', 'football', 'cricket', 'who is', 'python code', 'java code', 'song', 'joke', 'tell me a story'];
@@ -157,7 +184,7 @@ const smartFinancialAdvisor = (message, ctx) => {
 
   // ── SIP / Investment ──
   if (text.includes('sip') || text.includes('mutual fund') || text.includes('invest') || text.includes('stock') || text.includes('nifty') || text.includes('fd') || text.includes('portfolio')) {
-    const sipAmount = mainAmount || Math.floor(netSavings * 0.3);
+    const sipAmount = targetAmount || Math.floor(netSavings * 0.3);
     const percentOfSavings = netSavings > 0 ? ((sipAmount / netSavings) * 100).toFixed(0) : 0;
     // Rough 12% annual return estimate
     const monthlyRate = 0.12 / 12;
@@ -183,7 +210,7 @@ ${projections.map(p => `- **${p.years} year${p.years > 1 ? 's' : ''}**: ₹${p.v
 
   // ── EMI / Loan ──
   if (text.includes('emi') || text.includes('loan') || text.includes('borrow') || text.includes('interest rate')) {
-    const loanAmount = targetAmount || mainAmount || 500000;
+    const loanAmount = targetAmount || 500000;
     const annualRate = 0.10; // 10% default
     const tenureMonths = months || 36;
     const r = annualRate / 12;
@@ -208,7 +235,7 @@ ${emiAffordable
 
   // ── Buying / Affordability ──
   if (text.includes('buy') || text.includes('afford') || text.includes('purchase') || text.includes('car') || text.includes('phone') || text.includes('bike') || text.includes('house') || text.includes('laptop')) {
-    const purchaseAmt = targetAmount || mainAmount || 50000;
+    const purchaseAmt = targetAmount || 50000;
     const monthsToSave = Math.ceil(purchaseAmt / (netSavings || 1));
     return `🛒 **Affordability Analysis**:
 
