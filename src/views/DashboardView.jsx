@@ -239,8 +239,9 @@ export default function DashboardView({ onNavigateTab }) {
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} tick={{ fill: 'currentColor', fontSize: 12 }} width={60} />
                   <Tooltip 
-                    cursor={{fill: 'var(--color-surface-container)'}} 
-                    contentStyle={{ backgroundColor: 'var(--color-surface-container-lowest)', borderColor: 'var(--color-outline-variant)', borderRadius: 8 }}
+                    cursor={{fill: 'var(--surface-container-high)'}} 
+                    contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: 8, color: 'var(--on-surface)' }}
+                    itemStyle={{ color: 'var(--on-surface)' }}
                     formatter={(value) => `₹${Number(value).toLocaleString('en-IN')}`} 
                   />
                   <Bar dataKey="Spend" fill="#00677e" radius={[4, 4, 0, 0]} barSize={40} />
