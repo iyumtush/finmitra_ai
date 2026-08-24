@@ -1,19 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, RefreshCw, X, Sparkles } from 'lucide-react';
+import { Send, Bot, RefreshCw, X, Sparkles, Paperclip } from 'lucide-react';
 import { aiApi } from '../../api/aiApi';
+import { transactionApi } from '../../api/transactionApi';
 import './ChatBotWidget.css';
 
 export default function ChatBotWidget({ isFloating = false, onClose }) {
-  const [messages, setMessages] = useState([
-    {
-      sender: 'ai',
-      text: "👋 Hi! I'm FinMitra AI, your personal financial assistant. Ask me anything about your income, expenses, category spending, or savings tips!",
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('finmitra_ai_chat_history');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse chat history', e);
+      }
     }
-  ]);
+    return [
+      {
+        sender: 'ai',
+        text: "Hi! I'm FinMitra AI, your personal financial assistant. Ask me anything about your finances, or upload a receipt to automatically log a transaction!",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ];
+  });
+  
   const [inputMsg, setInputMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -21,6 +34,7 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
 
   useEffect(() => {
     scrollToBottom();
+    localStorage.setItem('finmitra_ai_chat_history', JSON.stringify(messages));
   }, [messages]);
 
   const handleSend = async (textToSend) => {
@@ -57,6 +71,66 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
     }
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Convert file to base64
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result.split(',')[1];
+      const mimeType = file.type;
+
+      setMessages(prev => [...prev, {
+        sender: 'user',
+        text: `[Uploaded Receipt: ${file.name}]`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+      
+      setLoading(true);
+
+      try {
+        const parsedData = await aiApi.parseReceiptImage(base64String, mimeType);
+        
+        if (parsedData && parsedData.amount > 0 && parsedData.category) {
+          // Add transaction to DB
+          await transactionApi.createTransaction(parsedData);
+          
+          setMessages(prev => [...prev, {
+            sender: 'ai',
+            text: `Successfully extracted and saved transaction!\nAmount: ₹${parsedData.amount}\nCategory: ${parsedData.category}\nDate: ${parsedData.date}`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
+        } else {
+          setMessages(prev => [...prev, {
+            sender: 'ai',
+            text: "I couldn't confidently extract transaction details from this receipt. Please ensure the image is clear and contains a payment amount.",
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
+        }
+      } catch (err) {
+        setMessages(prev => [...prev, {
+          sender: 'ai',
+          text: "Sorry, there was an error analyzing the receipt.",
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+      } finally {
+        setLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearHistory = () => {
+    localStorage.removeItem('finmitra_ai_chat_history');
+    setMessages([{
+      sender: 'ai',
+      text: "Chat history cleared. How can I help you today?",
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
+  };
+
   const quickChips = [
     "What is my total expense?",
     "Which is my highest spend?",
@@ -78,11 +152,16 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
           </div>
         </div>
 
-        {isFloating && onClose && (
-          <button className="close-chat-btn" onClick={onClose}>
-            <X size={18} />
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="close-chat-btn" onClick={clearHistory} title="Clear Chat History">
+            <RefreshCw size={16} />
           </button>
-        )}
+          {isFloating && onClose && (
+            <button className="close-chat-btn" onClick={onClose}>
+              <X size={18} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages Feed */}
@@ -99,7 +178,7 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
         {loading && (
           <div className="message-bubble-wrapper ai">
             <div className="message-bubble ai loading-bubble">
-              <RefreshCw size={16} className="spin-icon" /> Analyzing your financial data...
+              <RefreshCw size={16} className="spin-icon" /> Analyzing...
             </div>
           </div>
         )}
@@ -121,6 +200,23 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
 
       {/* Input Row */}
       <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="chatbot-input-form">
+        <input 
+          type="file" 
+          accept="image/*" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          onChange={handleFileUpload}
+        />
+        <button 
+          type="button" 
+          className="upload-btn" 
+          onClick={() => fileInputRef.current?.click()}
+          disabled={loading}
+          title="Upload Receipt"
+        >
+          <Paperclip size={18} />
+        </button>
+        
         <input 
           type="text" 
           placeholder="Ask FinMitra AI about your finances..."

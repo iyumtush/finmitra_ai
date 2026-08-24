@@ -1,7 +1,7 @@
 .chatbot-card {
   display: flex;
   flex-direction: column;
-  height: 480px;
+  height: 600px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: 24px;
@@ -13,8 +13,8 @@
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 380px;
-  height: 520px;
+  width: 400px;
+  height: 650px;
   z-index: 1000;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
   animation: chatPop 0.3s ease forwards;
@@ -175,6 +175,24 @@
 
 .chatbot-input-form input:focus {
   border-color: var(--accent-green);
+}
+
+.upload-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.upload-btn:hover {
+  background: var(--border-subtle);
+  color: var(--accent-green);
 }
 
 .send-btn {

@@ -12,7 +12,7 @@ const getGeminiKey = () => {
   return raw.replace(/^["']|["']$/g, '').trim();
 };
 
-const callGeminiREST = async (prompt, isJson = false) => {
+const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeType = 'image/jpeg') => {
   const key = getGeminiKey();
   if (!key) return null;
 
@@ -22,8 +22,19 @@ const callGeminiREST = async (prompt, isJson = false) => {
   for (const model of models) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      
+      const parts = [{ text: prompt }];
+      if (base64Image) {
+        parts.push({
+          inline_data: {
+            mime_type: mimeType,
+            data: base64Image
+          }
+        });
+      }
+
       const body = {
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts }],
         generationConfig: isJson
           ? { responseMimeType: 'application/json', temperature: 0.7 }
           : { temperature: 0.7 }
@@ -395,5 +406,29 @@ Instructions:
     // 2. Smart financial advisor fallback
     const reply = smartFinancialAdvisor(message, ctx);
     return { response: reply, reply };
+  },
+
+  parseReceiptImage: async (base64Image, mimeType) => {
+    const prompt = `You are a financial receipt parser. Analyze the uploaded receipt image and extract the transaction details.
+Return ONLY a valid JSON object with the following keys exactly:
+- "amount": The total numerical amount paid (number). E.g. 500. Return 0 if not found.
+- "category": Categorize the transaction into one of these: Food, Transport, Utilities, Shopping, Salary, Investment, Rent, Entertainment, Health, Other.
+- "note": A short description of the purchase (string).
+- "type": "expense" if money was paid, or "income" if money was received.
+- "date": The date of the transaction in YYYY-MM-DD format (string). Default to today's date if not visible.
+
+Make sure the output is perfectly valid JSON without any markdown formatting wrappers around it.`;
+
+    try {
+      const aiResponse = await callGeminiREST(prompt, true, base64Image, mimeType);
+      if (aiResponse) {
+        // Strip markdown backticks if Gemini still added them despite responseMimeType=application/json
+        const jsonString = aiResponse.replace(/```json\n?|```/g, '').trim();
+        return JSON.parse(jsonString);
+      }
+    } catch (err) {
+      console.error('Error parsing receipt with Gemini:', err);
+    }
+    return null;
   }
 };
