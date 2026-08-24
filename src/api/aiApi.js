@@ -135,7 +135,7 @@ const smartFinancialAdvisor = (message, ctx) => {
   const isNonFinance = nonFinanceWords.some(k => text.includes(k)) && !financeWords.some(k => text.includes(k));
 
   if (isNonFinance) {
-    return `🤖 **FinMitra AI Assistant**: I specialize in personal finance, investments, budgets, savings, and wealth management. Please ask me a finance-related question!`;
+    return ` FinMitra AI Assistant: I specialize in personal finance, investments, budgets, savings, and wealth management. Please ask me a finance-related question!`;
   }
 
   // ── Saving Goal / Target Questions ──
@@ -145,28 +145,25 @@ const smartFinancialAdvisor = (message, ctx) => {
     const gap = monthlySavingNeeded - netSavings;
     const isAchievable = netSavings >= monthlySavingNeeded;
 
-    let advice = `🎯 **Financial Goal Analysis**:
-**Goal**: Save **₹${targetAmount.toLocaleString('en-IN')}** in **${effectiveMonths} months**
+    let advice = ` Financial Goal Analysis: Goal: Save ₹${targetAmount.toLocaleString('en-IN')} in ${effectiveMonths} months
 
-📊 **Your Current Financials**:
-- Monthly Income: **₹${totalIncome.toLocaleString('en-IN')}**
-- Monthly Expenses: **₹${totalExpense.toLocaleString('en-IN')}**
-- Current Monthly Surplus: **₹${netSavings.toLocaleString('en-IN')}** (${savingsRate}% savings rate)
+ Your Current Financials: - Monthly Income: ₹${totalIncome.toLocaleString('en-IN')}
+- Monthly Expenses: ₹${totalExpense.toLocaleString('en-IN')}
+- Current Monthly Surplus: ₹${netSavings.toLocaleString('en-IN')} (${savingsRate}% savings rate)
 
-💰 **Monthly Savings Required**: **₹${monthlySavingNeeded.toLocaleString('en-IN')}/month**\n`;
+ Monthly Savings Required: ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month\n`;
 
     if (isAchievable) {
-      advice += `\n✅ **This goal is achievable!** You save ₹${netSavings.toLocaleString('en-IN')}/month, which is more than the required ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month.
-- You'll still have **₹${(netSavings - monthlySavingNeeded).toLocaleString('en-IN')}/month** remaining after setting aside the goal amount.
+      advice += `\n This goal is achievable! You save ₹${netSavings.toLocaleString('en-IN')}/month, which is more than the required ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month.
+- You'll still have ₹${(netSavings - monthlySavingNeeded).toLocaleString('en-IN')}/month remaining after setting aside the goal amount.
 
-💡 **Tip**: Park these savings in a high-yield savings account or liquid fund to earn interest while you save!`;
+ Tip: Park these savings in a high-yield savings account or liquid fund to earn interest while you save!`;
     } else {
-      advice += `\n⚠️ **Stretch Goal**: You need ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month but currently save ₹${netSavings.toLocaleString('en-IN')}/month.
-- **Shortfall**: ₹${gap.toLocaleString('en-IN')}/month
+      advice += `\n Stretch Goal: You need ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month but currently save ₹${netSavings.toLocaleString('en-IN')}/month.
+- Shortfall: ₹${gap.toLocaleString('en-IN')}/month
 
-💡 **Action Plan to Bridge the Gap**:
-- Reduce **${topCat}** expenses (currently ₹${topCatAmount.toLocaleString('en-IN')}) by ₹${Math.min(gap, topCatAmount).toLocaleString('en-IN')}/month.
-- Extend the timeline to **${Math.ceil(targetAmount / netSavings)} months** to comfortably reach your goal.
+ Action Plan to Bridge the Gap: - Reduce ${topCat} expenses (currently ₹${topCatAmount.toLocaleString('en-IN')}) by ₹${Math.min(gap, topCatAmount).toLocaleString('en-IN')}/month.
+- Extend the timeline to ${Math.ceil(targetAmount / netSavings)} months to comfortably reach your goal.
 - Consider a short-term FD or Recurring Deposit for disciplined saving.`;
     }
     return advice;
@@ -185,17 +182,13 @@ const smartFinancialAdvisor = (message, ctx) => {
       return { years: y, value: Math.round(fv), invested: sipAmount * n };
     });
 
-    return `📈 **SIP & Investment Analysis**:
+    return ` SIP & Investment Analysis: SIP Amount: ₹${sipAmount.toLocaleString('en-IN')}/month (~${percentOfSavings}% of your monthly surplus ₹${netSavings.toLocaleString('en-IN')})
 
-💵 **SIP Amount**: ₹${sipAmount.toLocaleString('en-IN')}/month (~${percentOfSavings}% of your monthly surplus ₹${netSavings.toLocaleString('en-IN')})
+ Projected Growth (assuming ~12% annual returns): ${projections.map(p => `- ${p.years} year${p.years > 1 ? 's' : ''}: ₹${p.value.toLocaleString('en-IN')} (Invested: ₹${p.invested.toLocaleString('en-IN')})`).join('\n')}
 
-📊 **Projected Growth** (assuming ~12% annual returns):
-${projections.map(p => `- **${p.years} year${p.years > 1 ? 's' : ''}**: ₹${p.value.toLocaleString('en-IN')} (Invested: ₹${p.invested.toLocaleString('en-IN')})`).join('\n')}
-
-💡 **Recommendations**:
-- ${sipAmount <= netSavings * 0.5 ? '✅ This is a healthy SIP allocation!' : '⚠️ Consider reducing SIP to 30-50% of surplus for liquidity.'}
-- Start with **Nifty 50 Index Funds** or **Flexi-Cap Funds** for balanced long-term growth.
-- Maintain an emergency fund of **₹${(totalExpense * 3).toLocaleString('en-IN')}** (3 months expenses) before investing.`;
+ Recommendations: - ${sipAmount <= netSavings * 0.5 ? ' This is a healthy SIP allocation!' : ' Consider reducing SIP to 30-50% of surplus for liquidity.'}
+- Start with Nifty 50 Index Funds or Flexi-Cap Funds for balanced long-term growth.
+- Maintain an emergency fund of ₹${(totalExpense * 3).toLocaleString('en-IN')} (3 months expenses) before investing.`;
   }
 
   // ── EMI / Loan ──
@@ -209,101 +202,81 @@ ${projections.map(p => `- **${p.years} year${p.years > 1 ? 's' : ''}**: ₹${p.v
     const totalInterest = totalPayable - loanAmount;
     const emiAffordable = emi <= netSavings * 0.5;
 
-    return `🏦 **Loan / EMI Calculator**:
-
-- **Loan Amount**: ₹${loanAmount.toLocaleString('en-IN')}
-- **Interest Rate**: ~10% per annum
-- **Tenure**: ${tenureMonths} months
-- **Monthly EMI**: **₹${emi.toLocaleString('en-IN')}**
-- **Total Interest Paid**: ₹${totalInterest.toLocaleString('en-IN')}
-- **Total Payable**: ₹${totalPayable.toLocaleString('en-IN')}
+    return ` Loan / EMI Calculator: - Loan Amount: ₹${loanAmount.toLocaleString('en-IN')}
+- Interest Rate: ~10% per annum
+- Tenure: ${tenureMonths} months
+- Monthly EMI: ₹${emi.toLocaleString('en-IN')}
+- Total Interest Paid: ₹${totalInterest.toLocaleString('en-IN')}
+- Total Payable: ₹${totalPayable.toLocaleString('en-IN')}
 
 ${emiAffordable
-  ? `✅ **Affordable**: EMI of ₹${emi.toLocaleString('en-IN')} is within 50% of your monthly surplus (₹${netSavings.toLocaleString('en-IN')}).`
-  : `⚠️ **Caution**: EMI of ₹${emi.toLocaleString('en-IN')} is more than 50% of your monthly surplus (₹${netSavings.toLocaleString('en-IN')}). Consider a longer tenure or smaller loan.`}`;
+  ? ` Affordable: EMI of ₹${emi.toLocaleString('en-IN')} is within 50% of your monthly surplus (₹${netSavings.toLocaleString('en-IN')}).`
+  : ` Caution: EMI of ₹${emi.toLocaleString('en-IN')} is more than 50% of your monthly surplus (₹${netSavings.toLocaleString('en-IN')}). Consider a longer tenure or smaller loan.`}`;
   }
 
   // ── Buying / Affordability ──
   if (text.includes('buy') || text.includes('afford') || text.includes('purchase') || text.includes('car') || text.includes('phone') || text.includes('bike') || text.includes('house') || text.includes('laptop')) {
     const purchaseAmt = targetAmount || 50000;
     const monthsToSave = Math.ceil(purchaseAmt / (netSavings || 1));
-    return `🛒 **Affordability Analysis**:
+    return ` Affordability Analysis: - Purchase Cost: ₹${purchaseAmt.toLocaleString('en-IN')}
+- Your Monthly Surplus: ₹${netSavings.toLocaleString('en-IN')}
+- Time to Save: ~${monthsToSave} month${monthsToSave > 1 ? 's' : ''}
 
-- **Purchase Cost**: ₹${purchaseAmt.toLocaleString('en-IN')}
-- **Your Monthly Surplus**: ₹${netSavings.toLocaleString('en-IN')}
-- **Time to Save**: ~**${monthsToSave} month${monthsToSave > 1 ? 's' : ''}**
-
-💡 ${purchaseAmt <= netSavings
-  ? `✅ You can afford this from a single month's savings!`
+ ${purchaseAmt <= netSavings
+  ? ` You can afford this from a single month's savings!`
   : `Save ₹${Math.ceil(purchaseAmt / 3).toLocaleString('en-IN')}/month for 3 months in a separate savings account.`}
 - Always ensure your emergency fund (₹${(totalExpense * 3).toLocaleString('en-IN')}) remains untouched.`;
   }
 
   // ── Tax Questions ──
   if (text.includes('tax') || text.includes('80c') || text.includes('section') || text.includes('deduction') || text.includes('regime')) {
-    return `📋 **Tax Planning Guidance**:
+    return ` Tax Planning Guidance: Based on your annual income of ~₹${(totalIncome * 12).toLocaleString('en-IN')}: - Section 80C: Invest up to ₹1,50,000/year in ELSS, PPF, or NPS for tax deduction.
+- Section 80D: Health insurance premiums up to ₹25,000 (₹50,000 for senior citizens).
+- Standard Deduction: ₹50,000 automatically deducted for salaried employees.
+- New vs Old Regime: If your total deductions exceed ₹3,75,000, the old regime may save you more tax.
 
-Based on your annual income of ~₹${(totalIncome * 12).toLocaleString('en-IN')}:
-
-- **Section 80C**: Invest up to ₹1,50,000/year in ELSS, PPF, or NPS for tax deduction.
-- **Section 80D**: Health insurance premiums up to ₹25,000 (₹50,000 for senior citizens).
-- **Standard Deduction**: ₹50,000 automatically deducted for salaried employees.
-- **New vs Old Regime**: If your total deductions exceed ₹3,75,000, the old regime may save you more tax.
-
-💡 **Tip**: Start a ₹12,500/month ELSS SIP to maximize 80C while building wealth!`;
+ Tip: Start a ₹12,500/month ELSS SIP to maximize 80C while building wealth!`;
   }
 
   // ── Expense / Spending Analysis ──
   if (text.includes('expense') || text.includes('spent') || text.includes('spending') || text.includes('cost') || text.includes('where does my money go')) {
-    const catBreakdown = sortedCats.slice(0, 5).map(([cat, amt]) => `  - **${cat}**: ₹${amt.toLocaleString('en-IN')} (${((amt / totalExpense) * 100).toFixed(0)}%)`).join('\n');
-    return `📊 **Detailed Expense Analysis**:
+    const catBreakdown = sortedCats.slice(0, 5).map(([cat, amt]) => `- ${cat}: ₹${amt.toLocaleString('en-IN')} (${((amt / totalExpense) * 100).toFixed(0)}%)`).join('\n');
+    return ` Detailed Expense Analysis: - Total Expenses: ₹${totalExpense.toLocaleString('en-IN')}
+- Expense-to-Income Ratio: ${((totalExpense / (totalIncome || 1)) * 100).toFixed(1)}%
 
-- **Total Expenses**: ₹${totalExpense.toLocaleString('en-IN')}
-- **Expense-to-Income Ratio**: ${((totalExpense / (totalIncome || 1)) * 100).toFixed(1)}%
+ Category Breakdown (Top ${Math.min(5, sortedCats.length)}): ${catBreakdown}
 
-📂 **Category Breakdown** (Top ${Math.min(5, sortedCats.length)}):
-${catBreakdown}
-
-💡 **Tip**: Try to reduce your top category **${topCat}** spending by 10-15% to increase your savings rate from ${savingsRate}% to ~${(parseFloat(savingsRate) + 5).toFixed(1)}%.`;
+ Tip: Try to reduce your top category ${topCat} spending by 10-15% to increase your savings rate from ${savingsRate}% to ~${(parseFloat(savingsRate) + 5).toFixed(1)}%.`;
   }
 
   // ── Income / Salary ──
   if (text.includes('income') || text.includes('salary') || text.includes('earn')) {
-    return `💵 **Income Summary**:
+    return ` Income Summary: - Monthly Income: ₹${totalIncome.toLocaleString('en-IN')}
+- Annual Income (projected): ₹${(totalIncome * 12).toLocaleString('en-IN')}
+- Net Surplus: ₹${netSavings.toLocaleString('en-IN')}/month (${savingsRate}% savings rate)
 
-- **Monthly Income**: ₹${totalIncome.toLocaleString('en-IN')}
-- **Annual Income** (projected): ₹${(totalIncome * 12).toLocaleString('en-IN')}
-- **Net Surplus**: ₹${netSavings.toLocaleString('en-IN')}/month (${savingsRate}% savings rate)
-
-💡 **Wealth Building Tip**: At your current savings rate, you'll accumulate **₹${(netSavings * 12).toLocaleString('en-IN')}** per year in savings. Consider investing 50% of this in SIPs for long-term compounding!`;
+ Wealth Building Tip: At your current savings rate, you'll accumulate ₹${(netSavings * 12).toLocaleString('en-IN')} per year in savings. Consider investing 50% of this in SIPs for long-term compounding!`;
   }
 
   // ── Budget Questions ──
   if (text.includes('budget') || text.includes('limit') || text.includes('cap') || text.includes('over budget')) {
-    return `📋 **Budget Status**:
+    return ` Budget Status: ${sortedCats.map(([cat, amt]) => `- ${cat}: ₹${amt.toLocaleString('en-IN')} spent`).join('\n')}
 
-${sortedCats.map(([cat, amt]) => `- **${cat}**: ₹${amt.toLocaleString('en-IN')} spent`).join('\n')}
-
-💡 **50/30/20 Rule for ₹${totalIncome.toLocaleString('en-IN')} income**:
-- **Needs** (50%): ₹${Math.round(totalIncome * 0.5).toLocaleString('en-IN')}
-- **Wants** (30%): ₹${Math.round(totalIncome * 0.3).toLocaleString('en-IN')}
-- **Savings/Invest** (20%): ₹${Math.round(totalIncome * 0.2).toLocaleString('en-IN')}`;
+ 50/30/20 Rule for ₹${totalIncome.toLocaleString('en-IN')} income: - Needs (50%): ₹${Math.round(totalIncome * 0.5).toLocaleString('en-IN')}
+- Wants (30%): ₹${Math.round(totalIncome * 0.3).toLocaleString('en-IN')}
+- Savings/Invest (20%): ₹${Math.round(totalIncome * 0.2).toLocaleString('en-IN')}`;
   }
 
   // ── General / Catch-all Financial Answer ──
-  return `💡 **FinMitra AI Financial Summary**:
+  return ` FinMitra AI Financial Summary: Your Financial Snapshot: - Income: ₹${totalIncome.toLocaleString('en-IN')} | Expenses: ₹${totalExpense.toLocaleString('en-IN')}
+- Net Savings: ₹${netSavings.toLocaleString('en-IN')}/month (${savingsRate}% rate)
+- Top Spend: ${topCat} (₹${topCatAmount.toLocaleString('en-IN')})
 
-📊 **Your Financial Snapshot**:
-- **Income**: ₹${totalIncome.toLocaleString('en-IN')} | **Expenses**: ₹${totalExpense.toLocaleString('en-IN')}
-- **Net Savings**: ₹${netSavings.toLocaleString('en-IN')}/month (${savingsRate}% rate)
-- **Top Spend**: ${topCat} (₹${topCatAmount.toLocaleString('en-IN')})
-
-I can help you with detailed analysis! Try asking:
-- *"How much should I save to make ₹1 lakh in 3 months?"*
-- *"Should I start a SIP of ₹5000?"*
-- *"Can I afford a laptop for ₹60,000?"*
-- *"Calculate EMI for a ₹5 lakh loan"*
-- *"How to save tax on my income?"*`;
+I can help you with detailed analysis! Try asking: - "How much should I save to make ₹1 lakh in 3 months?"
+- "Should I start a SIP of ₹5000?"
+- "Can I afford a laptop for ₹60,000?"
+- "Calculate EMI for a ₹5 lakh loan"
+- "How to save tax on my income?"`;
 };
 
 // ─── Exported API ───
@@ -408,8 +381,8 @@ Instructions:
 2. Always incorporate the user's REAL financial data (Income: ₹${ctx.totalIncome}, Expenses: ₹${ctx.totalExpense}, Net Savings: ₹${ctx.netSavings}/month) into your response.
 3. If the user asks a saving goal question (e.g. "save 1 lakh in 3 months"), calculate the exact monthly saving needed and compare with their current surplus.
 4. If the question is NOT about finance at all, politely say you specialize only in personal finance.
-5. Use clean Markdown formatting with headers, bullet points, and emojis.
-6. Keep responses concise but comprehensive.`;
+5. DO NOT use any markdown formatting (no asterisks *, no hashtags #).
+6. DO NOT use any emojis. Use plain text only. Keep responses concise but comprehensive.`;
 
       const aiResponse = await callGeminiREST(prompt, false);
       if (aiResponse) {
