@@ -18,21 +18,59 @@ export default function DashboardView({ onNavigateTab }) {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthName());
   const [viewMode, setViewMode] = useState('weeks'); 
+  const [showIncomeModal, setShowIncomeModal] = useState(false);
+  const [newIncome, setNewIncome] = useState('');
+  const [isUpdatingIncome, setIsUpdatingIncome] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const txData = await transactionApi.getTransactions();
+      setTransactions(txData);
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const txData = await transactionApi.getTransactions();
-        setTransactions(txData);
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
+
+  const handleUpdateSalary = async (e) => {
+    e.preventDefault();
+    if (!newIncome || parseFloat(newIncome) < 0) return;
+    
+    setIsUpdatingIncome(true);
+    try {
+      const salaryTx = transactions.find(t => (t.category || '').toLowerCase() === 'salary' || (t.type || '').toUpperCase() === 'INCOME');
+      
+      if (salaryTx) {
+        await transactionApi.updateTransaction(salaryTx.id, {
+          ...salaryTx,
+          amount: parseFloat(newIncome)
+        });
+      } else {
+        await transactionApi.createTransaction({
+          amount: parseFloat(newIncome),
+          category: 'Salary',
+          note: 'Monthly Salary',
+          type: 'INCOME',
+          date: new Date().toISOString().split('T')[0]
+        });
+      }
+      
+      await fetchData();
+      setShowIncomeModal(false);
+      setNewIncome('');
+    } catch (err) {
+      console.error('Failed to update salary:', err);
+      alert('Failed to update salary.');
+    } finally {
+      setIsUpdatingIncome(false);
+    }
+  };
 
   const filteredTransactions = transactions.filter(t => {
     if (selectedMonth === 'All Months') return true;
@@ -110,7 +148,7 @@ export default function DashboardView({ onNavigateTab }) {
       <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">
-            Welcome back, {user?.user_metadata?.full_name?.split(' ')[0] || 'User'}
+            Welcome back, {(user?.user_metadata?.name || user?.user_metadata?.full_name || user?.name || 'User').split(' ')[0]}
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-2">Here is your financial overview for today.</p>
         </div>
@@ -129,7 +167,19 @@ export default function DashboardView({ onNavigateTab }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col justify-between h-40 relative overflow-hidden">
           <div className="relative z-10">
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total Income</p>
+            <div className="flex items-center gap-2">
+              <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total Income</p>
+              <button 
+                onClick={() => {
+                  setNewIncome(totalIncome.toString());
+                  setShowIncomeModal(true);
+                }} 
+                className="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center"
+                title="Edit Salary"
+              >
+                <span className="material-symbols-outlined text-[16px]">edit</span>
+              </button>
+            </div>
             <p className="font-headline-md text-headline-md text-primary mt-1">₹{totalIncome.toLocaleString('en-IN')}</p>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-16 opacity-30">
@@ -314,6 +364,43 @@ export default function DashboardView({ onNavigateTab }) {
           </table>
         </div>
       </div>
+
+      {/* Update Salary Modal */}
+      {showIncomeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-surface-container-lowest rounded-xl shadow-lg w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center p-4 border-b border-outline-variant">
+              <h3 className="font-headline-md text-headline-md text-primary">Update Salary</h3>
+              <button onClick={() => setShowIncomeModal(false)} className="text-on-surface-variant hover:text-primary transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleUpdateSalary} className="p-6 space-y-4">
+              <div>
+                <label className="block font-label-sm text-on-surface-variant mb-1">Monthly Salary (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 60000"
+                  value={newIncome}
+                  onChange={(e) => setNewIncome(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:outline-none focus:border-secondary"
+                  autoFocus
+                />
+              </div>
+              <div className="pt-2">
+                <button 
+                  type="submit" 
+                  disabled={isUpdatingIncome}
+                  className="w-full py-3 bg-primary text-on-primary rounded-lg font-label-md hover:bg-primary-container transition-colors shadow-sm disabled:opacity-70"
+                >
+                  {isUpdatingIncome ? 'Updating...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
