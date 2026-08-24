@@ -16,7 +16,7 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
   const key = getGeminiKey();
   if (!key) return null;
 
-  const models = ['gemini-3.5-flash', 'gemini-flash-latest'];
+  const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
   let lastError = null;
 
   for (const model of models) {
@@ -40,14 +40,20 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
           : { temperature: 0.7 }
       };
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       const res = await fetch(url, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'x-goog-api-key': key
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         lastError = new Error(`Model ${model} returned ${res.status}`);
