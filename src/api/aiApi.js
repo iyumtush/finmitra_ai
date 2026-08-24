@@ -120,7 +120,7 @@ const callGrokREST = async (prompt, isJson = false, base64Image = null, mimeType
           content: contentStrOrArr
         }
       ],
-      model: base64Image ? "grok-vision-beta" : "grok-beta",
+      model: base64Image ? "grok-2-vision-latest" : "grok-2-latest",
       stream: false,
       temperature: 0.7
     };
