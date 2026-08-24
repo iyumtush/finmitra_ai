@@ -148,7 +148,27 @@ export default function DashboardView({ onNavigateTab }) {
       Spend: dailyMap[key]
     }));
 
-  const chartData = viewMode === 'weeks' ? realTrendData : dailyTrendData;
+  // Monthly Aggregation
+  let monthlyTrendData = [];
+  const monthMap = {};
+  
+  expenseTx.forEach(t => {
+    if (!t.date) return;
+    const d = new Date(t.date);
+    if (isNaN(d.getTime())) return;
+    const monthStr = d.toLocaleDateString('default', { month: 'short' }); 
+    if (!monthMap[monthStr]) monthMap[monthStr] = 0;
+    monthMap[monthStr] += Number(t.amount || 0);
+  });
+  
+  monthlyTrendData = Object.keys(monthMap)
+    .sort((a, b) => new Date(`${a} 1, 2020`) - new Date(`${b} 1, 2020`))
+    .map(key => ({
+      name: key,
+      Spend: monthMap[key]
+    }));
+
+  const chartData = viewMode === 'months' ? monthlyTrendData : (viewMode === 'weeks' ? realTrendData : dailyTrendData);
 
   // Get recent 5 transactions
   const recentTransactions = [...transactions]
@@ -246,6 +266,12 @@ export default function DashboardView({ onNavigateTab }) {
             <div className="flex gap-4 items-center">
               <div className="flex bg-surface-container-low p-1 rounded-lg">
                 <button
+                  onClick={() => setViewMode('months')}
+                  className={`px-3 py-1 font-label-md text-label-md rounded-md transition-all ${viewMode === 'months' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+                >
+                  Monthly
+                </button>
+                <button
                   onClick={() => setViewMode('weeks')}
                   className={`px-3 py-1 font-label-md text-label-md rounded-md transition-all ${viewMode === 'weeks' ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
                 >
@@ -261,7 +287,12 @@ export default function DashboardView({ onNavigateTab }) {
               <select 
                 className="bg-surface-container-low border border-outline-variant rounded-lg px-3 py-1 font-label-md text-label-md text-on-surface-variant focus:ring-secondary focus:border-secondary outline-none h-8"
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedMonth(val);
+                  if (val === 'All Months') setViewMode('months');
+                  else if (viewMode === 'months') setViewMode('weeks');
+                }}
               >
                 <option value="All Months">All Months</option>
                 <option value={getCurrentMonthName()}>{getCurrentMonthName()}</option>
