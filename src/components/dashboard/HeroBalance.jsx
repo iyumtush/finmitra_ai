@@ -5,10 +5,10 @@ import './HeroBalance.css';
 export default function HeroBalance({ balance = 42850.00, monthlyIncome = 8500, monthlyExpense = 3240, onOpenModal }) {
   const netSavings = monthlyIncome - monthlyExpense;
 
-  const formatCurrency = (val) => new Intl.NumberFormat('en-US', {
+  const formatCurrency = (val) => new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
+    currency: 'INR',
+    maximumFractionDigits: 2,
   }).format(val);
 
   return (

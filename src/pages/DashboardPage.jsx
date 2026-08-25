@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/layout/Sidebar';
 import TopHeader from '../components/layout/TopHeader';
+import BottomNav from '../components/layout/BottomNav';
 import DashboardView from '../views/DashboardView';
 import TransactionsView from '../views/TransactionsView';
 import BudgetView from '../views/BudgetView';
@@ -38,14 +39,14 @@ export default function DashboardPage() {
         <OnboardingModal user={user} onComplete={handleOnboardingComplete} />
       )}
 
-      {/* Left Vertical Navigation */}
+      {/* Left Vertical Navigation (Desktop) */}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Main App Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden pb-16 md:pb-0">
         <TopHeader />
 
-        <div className="contents">
+        <div className="flex-1 overflow-y-auto">
           {activeTab === 'dashboard' && (
             <DashboardView onNavigateTab={(tab) => setActiveTab(tab)} />
           )}
@@ -63,6 +64,9 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Bottom Navigation Bar (Mobile only) */}
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 }

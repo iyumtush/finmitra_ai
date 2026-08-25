@@ -3,11 +3,11 @@ import { Filter, ChevronDown, Plus, X, ArrowDownLeft, ArrowUpRight } from 'lucid
 import './TransactionsTable.css';
 
 const initialTransactions = [
-  { id: 1, name: 'TechCorp Salary Credit', category: 'Salary', type: 'INCOME', amount: '+$8,500.00', date: 'July 01, 2026', account: 'HDFC Bank' },
-  { id: 2, name: 'D-Mart Supermarket Groceries', category: 'Groceries', type: 'EXPENSE', amount: '-$145.50', date: 'July 03, 2026', account: 'Credit Card' },
-  { id: 3, name: 'State Electricity Bill', category: 'Utilities', type: 'EXPENSE', amount: '-$84.00', date: 'July 05, 2026', account: 'HDFC Bank' },
-  { id: 4, name: 'Netflix Premium Subscription', category: 'Entertainment', type: 'EXPENSE', amount: '-$19.99', date: 'July 07, 2026', account: 'Credit Card' },
-  { id: 5, name: 'Swiggy Gourmet Dinner', category: 'Food & Dining', type: 'EXPENSE', amount: '-$42.00', date: 'July 10, 2026', account: 'HDFC Bank' },
+  { id: 1, name: 'TechCorp Salary Credit', category: 'Salary', type: 'INCOME', amount: '+₹7,22,500.00', date: 'July 01, 2026', account: 'HDFC Bank' },
+  { id: 2, name: 'D-Mart Supermarket Groceries', category: 'Groceries', type: 'EXPENSE', amount: '-₹12,367.50', date: 'July 03, 2026', account: 'Credit Card' },
+  { id: 3, name: 'State Electricity Bill', category: 'Utilities', type: 'EXPENSE', amount: '-₹7,140.00', date: 'July 05, 2026', account: 'HDFC Bank' },
+  { id: 4, name: 'Netflix Premium Subscription', category: 'Entertainment', type: 'EXPENSE', amount: '-₹1,699.00', date: 'July 07, 2026', account: 'Credit Card' },
+  { id: 5, name: 'Swiggy Gourmet Dinner', category: 'Food & Dining', type: 'EXPENSE', amount: '-₹3,570.00', date: 'July 10, 2026', account: 'HDFC Bank' },
 ];
 
 export default function TransactionsTable({ initialType = null, showAddModal = false, onCloseModal, onTransactionAdded }) {
@@ -32,8 +32,8 @@ export default function TransactionsTable({ initialType = null, showAddModal = f
 
     const numAmount = parseFloat(amount);
     const formattedAmt = type === 'INCOME'
-      ? `+$${numAmount.toFixed(2)}`
-      : `-$${numAmount.toFixed(2)}`;
+      ? `+₹${numAmount.toLocaleString('en-IN')}`
+      : `-₹${numAmount.toLocaleString('en-IN')}`;
 
     const newTx = {
       id: Date.now(),
@@ -167,7 +167,7 @@ export default function TransactionsTable({ initialType = null, showAddModal = f
               </div>
 
               <div className="input-group">
-                <label>Amount ($)</label>
+                <label>Amount (₹)</label>
                 <input
                   type="number"
                   step="0.01"

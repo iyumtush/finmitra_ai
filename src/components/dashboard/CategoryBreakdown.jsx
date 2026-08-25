@@ -4,11 +4,11 @@ import './CategoryBreakdown.css';
 
 export default function CategoryBreakdown() {
   const categories = [
-    { label: 'Housing & Rent', color: '#059669', amount: '$1,200' },
-    { label: 'Groceries', color: '#00E676', amount: '$650' },
-    { label: 'Utilities', color: '#06B6D4', amount: '$340' },
-    { label: 'Shopping', color: '#E2E8F0', amount: '$550' },
-    { label: 'Entertainment', color: '#64748B', amount: '$500' },
+    { label: 'Housing & Rent', color: '#059669', amount: '₹1,02,000' },
+    { label: 'Groceries', color: '#00E676', amount: '₹55,250' },
+    { label: 'Utilities', color: '#06B6D4', amount: '₹28,900' },
+    { label: 'Shopping', color: '#E2E8F0', amount: '₹46,750' },
+    { label: 'Entertainment', color: '#64748B', amount: '₹42,500' },
   ];
 
   return (
@@ -74,7 +74,7 @@ export default function CategoryBreakdown() {
 
         <div className="gauge-center-text">
           <span className="gauge-label">Total Monthly Expenses</span>
-          <span className="gauge-value">$3,240</span>
+          <span className="gauge-value">₹2,75,400</span>
         </div>
       </div>
 

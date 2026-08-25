@@ -61,7 +61,7 @@ export default function PortfolioChart() {
               axisLine={false} 
               tickLine={false} 
               tick={{ fill: '#64748B', fontSize: 11 }}
-              tickFormatter={(v) => `$${v / 1000}k`}
+              tickFormatter={(v) => `₹${v / 1000}k`}
             />
 
             <Tooltip content={<CustomTooltip />} />
@@ -104,9 +104,9 @@ function CustomTooltip({ active, payload, label }) {
     return (
       <div className="custom-chart-tooltip">
         <span className="tooltip-month">{label} Cash Flow</span>
-        <div className="tooltip-row green">Income: <span>${inc?.toLocaleString()}</span></div>
-        <div className="tooltip-row red">Expense: <span>${exp?.toLocaleString()}</span></div>
-        <div className="tooltip-row cyan">Net Savings: <span>${sav?.toLocaleString()}</span></div>
+        <div className="tooltip-row green">Income: <span>₹{inc?.toLocaleString('en-IN')}</span></div>
+        <div className="tooltip-row red">Expense: <span>₹{exp?.toLocaleString('en-IN')}</span></div>
+        <div className="tooltip-row cyan">Net Savings: <span>₹{sav?.toLocaleString('en-IN')}</span></div>
       </div>
     );
   }
