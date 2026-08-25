@@ -40,8 +40,8 @@ export default function AuthPage() {
       const res = await signup(name, email, password);
       if (!res.success) {
         setLocalError(res.error);
-      } else if (res.requiresSignIn || res.message) {
-        setSuccessMessage(res.message || 'Account created successfully! Please sign in.');
+      } else {
+        setSuccessMessage(res.message || 'Account created successfully! Please sign in with your email and password.');
         setIsLogin(true);
         setPassword('');
       }

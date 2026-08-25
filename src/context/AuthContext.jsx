@@ -101,15 +101,11 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error;
 
+      // Do not auto-login on account creation; force explicit sign in on the Sign In tab
       if (data.session) {
-        const userData = {
-          id: data.user.id,
-          email: data.user.email,
-          name: name.trim()
-        };
-        setUser(userData);
-        setSession(data.session);
-        return { success: true, loggedIn: true };
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
       }
 
       return {
