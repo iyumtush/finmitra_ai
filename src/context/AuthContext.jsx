@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 
 const AuthContext = createContext();
@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isSigningUpRef = useRef(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -17,19 +18,26 @@ export const AuthProvider = ({ children }) => {
 
     // 1. Fetch initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          name: session.user.user_metadata?.name || session.user.email.split('@')[0]
-        });
+      if (!isSigningUpRef.current) {
+        setSession(session);
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata?.name || session.user.email.split('@')[0]
+          });
+        }
       }
       setLoading(false);
     }).catch(() => setLoading(false));
 
     // 2. Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Ignore auth state changes while user registration is in progress
+      if (isSigningUpRef.current) {
+        return;
+      }
+
       setSession(session);
       if (session?.user) {
         setUser({
@@ -90,6 +98,7 @@ export const AuthProvider = ({ children }) => {
 
     setLoading(true);
     setError(null);
+    isSigningUpRef.current = true;
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
@@ -101,12 +110,12 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error;
 
-      // Do not auto-login on account creation; force explicit sign in on the Sign In tab
-      if (data.session) {
+      // Ensure session is signed out and user state remains null
+      if (data.session || (await supabase.auth.getSession()).data.session) {
         await supabase.auth.signOut();
-        setUser(null);
-        setSession(null);
       }
+      setUser(null);
+      setSession(null);
 
       return {
         success: true,
@@ -119,6 +128,7 @@ export const AuthProvider = ({ children }) => {
       setError(msg);
       return { success: false, error: msg };
     } finally {
+      isSigningUpRef.current = false;
       setLoading(false);
     }
   };
