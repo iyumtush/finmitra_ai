@@ -99,6 +99,11 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     isSigningUpRef.current = true;
+    
+    // Explicitly reset user and session before registration
+    setUser(null);
+    setSession(null);
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
@@ -110,12 +115,26 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error;
 
-      // Ensure session is signed out and user state remains null
-      if (data.session || (await supabase.auth.getSession()).data.session) {
-        await supabase.auth.signOut();
+      // Force sign out immediately if Supabase created a session
+      await supabase.auth.signOut().catch(() => {});
+
+      // Clear any stored Supabase auth tokens from localStorage
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('auth-token'))) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (e) {
+        console.error('Error clearing storage:', e);
       }
+
       setUser(null);
       setSession(null);
+
+      // Delay resetting the ref so leftover async state events are absorbed
+      await new Promise(r => setTimeout(r, 400));
 
       return {
         success: true,
