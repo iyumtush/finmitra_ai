@@ -193,7 +193,12 @@ const smartFinancialAdvisor = (message, ctx, userProfile = null) => {
 
   // ── User Profile & Financial Persona Query ──
   if (text.includes('profile') || text.includes('who am i') || text.includes('my detail') || text.includes('persona')) {
-    const age = profile.age || 28;
+    if (!profile.isProfileCompleted || !profile.monthlyIncome) {
+      return ` User Financial Profile Setup Pending:
+Your profile has not been fully configured yet! Please head over to the Profile & Goals tab (or complete the initial setup) to input your age, monthly income, and goals for personalized AI guidance.`;
+    }
+
+    const age = profile.age || 25;
     const equityPct = Math.max(20, Math.min(85, 100 - age));
     const debtPct = 100 - equityPct;
     const dti = profile.monthlyIncome > 0 ? ((profile.monthlyEMIs / profile.monthlyIncome) * 100).toFixed(1) : '0.0';
@@ -202,12 +207,12 @@ const smartFinancialAdvisor = (message, ctx, userProfile = null) => {
 - Name: ${profile.fullName || 'User'}
 - Age: ${profile.age} years | Occupation: ${profile.occupation}
 - Monthly Income: ₹${(profile.monthlyIncome || totalIncome).toLocaleString('en-IN')}
-- Fixed Expenses: ₹${profile.monthlyFixedExpenses.toLocaleString('en-IN')} | EMIs: ₹${profile.monthlyEMIs.toLocaleString('en-IN')} (DTI: ${dti}%)
-- Risk Appetite: ${profile.riskTolerance}
-- Primary Financial Goal: ${profile.primaryGoal} (Target: ₹${profile.targetGoalAmount.toLocaleString('en-IN')})
-- Target Retirement Age: ${profile.targetRetirementAge} (${Math.max(1, profile.targetRetirementAge - age)} years to retirement)
+- Fixed Expenses: ₹${(profile.monthlyFixedExpenses || 0).toLocaleString('en-IN')} | EMIs: ₹${(profile.monthlyEMIs || 0).toLocaleString('en-IN')} (DTI: ${dti}%)
+- Risk Appetite: ${profile.riskTolerance || 'Moderate'}
+- Primary Financial Goal: ${profile.primaryGoal || 'Wealth Building'} (Target: ₹${(profile.targetGoalAmount || 0).toLocaleString('en-IN')})
+- Target Retirement Age: ${profile.targetRetirementAge || 60} (${Math.max(1, (profile.targetRetirementAge || 60) - age)} years to retirement)
 - Recommended Asset Split (100 - Age rule): ${equityPct}% Equity / Index Funds | ${debtPct}% Debt / Fixed Income
-- Recommended Emergency Buffer: ₹${(profile.monthlyFixedExpenses * 6).toLocaleString('en-IN')} (6 months fixed costs)`;
+- Recommended Emergency Buffer: ₹${((profile.monthlyFixedExpenses || 0) * 6).toLocaleString('en-IN')} (6 months fixed costs)`;
   }
 
   // ── Asset Allocation / Portfolio Split Questions ──

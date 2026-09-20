@@ -23,7 +23,18 @@ export default function ProfileView({ onNavigateTab }) {
 
   const handleSave = (e) => {
     e.preventDefault();
-    const saved = profileApi.saveUserProfile(profile, user?.email);
+    const cleanProfile = {
+      ...profile,
+      age: parseInt(profile.age) || '',
+      monthlyIncome: parseFloat(profile.monthlyIncome) || 0,
+      monthlyFixedExpenses: parseFloat(profile.monthlyFixedExpenses) || 0,
+      monthlyEMIs: parseFloat(profile.monthlyEMIs) || 0,
+      dependents: parseInt(profile.dependents) || 0,
+      targetGoalAmount: parseFloat(profile.targetGoalAmount) || 0,
+      targetRetirementAge: parseInt(profile.targetRetirementAge) || 60,
+      isProfileCompleted: true
+    };
+    const saved = profileApi.saveUserProfile(cleanProfile, user?.email);
     setProfile(saved);
     setIsSaved(true);
     setSaveMessage('Profile saved! FinMitra AI is now personalized with your updated financial persona.');
@@ -31,7 +42,8 @@ export default function ProfileView({ onNavigateTab }) {
   };
 
   // Financial calculations based on profile
-  const age = Number(profile.age) || 28;
+  const hasAge = Boolean(profile.age && Number(profile.age) > 0);
+  const age = hasAge ? Number(profile.age) : null;
   const income = Number(profile.monthlyIncome) || 0;
   const emis = Number(profile.monthlyEMIs) || 0;
   const fixedExpenses = Number(profile.monthlyFixedExpenses) || 0;
@@ -39,11 +51,12 @@ export default function ProfileView({ onNavigateTab }) {
   const surplus = Math.max(0, income - emis - fixedExpenses);
   
   // Asset allocation: 100 - age rule
-  const equityAllocation = Math.max(20, Math.min(85, 100 - age));
+  const equityAllocation = age ? Math.max(20, Math.min(85, 100 - age)) : 70;
   const debtAllocation = 100 - equityAllocation;
 
   // Life Stage assessment
   const getLifeStage = (a) => {
+    if (!a) return 'Configure age to assess stage';
     if (a < 30) return 'Early Career & Aggressive Growth';
     if (a < 45) return 'Family Building & Wealth Accumulation';
     if (a < 55) return 'Pre-Retirement & Capital Consolidation';
@@ -67,10 +80,15 @@ export default function ProfileView({ onNavigateTab }) {
           </div>
 
           <div className="flex items-center gap-3">
-            {isSaved && (
+            {profile.isProfileCompleted ? (
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-full flex items-center gap-1.5 animate-in fade-in">
                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
                 AI Persona Active
+              </span>
+            ) : (
+              <span className="text-xs font-semibold text-amber-600 bg-amber-500/10 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">pending</span>
+                Profile Setup Pending
               </span>
             )}
             <button
@@ -82,6 +100,16 @@ export default function ProfileView({ onNavigateTab }) {
             </button>
           </div>
         </div>
+
+        {/* Uncompleted Profile Warning Banner */}
+        {!profile.isProfileCompleted && (
+          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-3 rounded-xl flex items-center gap-3 text-sm animate-in slide-in-from-top-2">
+            <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-xl">info</span>
+            <div>
+              <strong>Profile Incomplete:</strong> Please fill out your financial details and targets below so FinMitra AI can calculate your personalized roadmap and 100 - age asset allocation.
+            </div>
+          </div>
+        )}
 
         {/* Notification Banner */}
         {saveMessage && (
@@ -96,21 +124,21 @@ export default function ProfileView({ onNavigateTab }) {
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-container text-on-primary flex items-center justify-center font-bold text-2xl shadow-md shrink-0">
-                {profile.fullName?.charAt(0) || 'U'}
+                {(profile.fullName || user?.name || 'U').charAt(0).toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-xl font-bold text-primary">{profile.fullName || 'FinMitra User'}</h3>
+                  <h3 className="text-xl font-bold text-primary">{profile.fullName || user?.name || 'FinMitra User'}</h3>
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-secondary/15 text-secondary">
-                    {profile.riskTolerance} Risk Persona
+                    {profile.riskTolerance || 'Moderate'} Risk Persona
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                    Age {age}
+                    {age ? `Age ${age}` : 'Age not set'}
                   </span>
                 </div>
                 <p className="text-xs text-on-surface-variant mt-1 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[14px]">work</span>
-                  {profile.occupation || 'Professional'}
+                  {profile.occupation || 'Occupation not set'}
                   <span className="mx-1">•</span>
                   <span className="material-symbols-outlined text-[14px]">trending_up</span>
                   {getLifeStage(age)}
@@ -122,21 +150,21 @@ export default function ProfileView({ onNavigateTab }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
               <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/60">
                 <div className="text-[10px] text-on-surface-variant uppercase font-semibold">Monthly Income</div>
-                <div className="text-sm font-bold text-primary mt-0.5">₹{income.toLocaleString('en-IN')}</div>
+                <div className="text-sm font-bold text-primary mt-0.5">{income > 0 ? `₹${income.toLocaleString('en-IN')}` : 'Not set'}</div>
               </div>
               <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/60">
                 <div className="text-[10px] text-on-surface-variant uppercase font-semibold">Monthly EMIs</div>
-                <div className="text-sm font-bold text-error mt-0.5">₹{emis.toLocaleString('en-IN')}</div>
+                <div className="text-sm font-bold text-error mt-0.5">{emis > 0 ? `₹${emis.toLocaleString('en-IN')}` : '₹0'}</div>
               </div>
               <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/60">
                 <div className="text-[10px] text-on-surface-variant uppercase font-semibold">DTI Ratio</div>
                 <div className={`text-sm font-bold mt-0.5 ${Number(dti) > 40 ? 'text-error' : 'text-emerald-600'}`}>
-                  {dti}% {Number(dti) <= 40 ? '(Healthy)' : '(High)'}
+                  {income > 0 ? `${dti}% ${Number(dti) <= 40 ? '(Healthy)' : '(High)'}` : '0.0%'}
                 </div>
               </div>
               <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/60">
                 <div className="text-[10px] text-on-surface-variant uppercase font-semibold">Free Surplus</div>
-                <div className="text-sm font-bold text-secondary mt-0.5">₹{surplus.toLocaleString('en-IN')}</div>
+                <div className="text-sm font-bold text-secondary mt-0.5">{income > 0 ? `₹${surplus.toLocaleString('en-IN')}` : '₹0'}</div>
               </div>
             </div>
           </div>
@@ -146,10 +174,10 @@ export default function ProfileView({ onNavigateTab }) {
             <div className="flex justify-between items-center text-xs mb-2">
               <span className="font-semibold text-primary flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-secondary text-[16px]">pie_chart</span>
-                AI Recommended Asset Allocation (Based on Age {age} Rule)
+                {age ? `AI Recommended Asset Allocation (Based on Age ${age} Rule)` : 'AI Recommended Asset Allocation (Configure age to calculate)'}
               </span>
               <span className="text-on-surface-variant font-medium">
-                {equityAllocation}% Equity / Stocks • {debtAllocation}% Debt / Fixed Income
+                {age ? `${equityAllocation}% Equity / Stocks • ${debtAllocation}% Debt / Fixed Income` : '100 - Age Allocation'}
               </span>
             </div>
             <div className="w-full h-3.5 bg-surface-container-high rounded-full overflow-hidden flex shadow-inner">
@@ -205,8 +233,9 @@ export default function ProfileView({ onNavigateTab }) {
                   type="number"
                   min="18"
                   max="100"
-                  value={profile.age}
-                  onChange={(e) => handleChange('age', parseInt(e.target.value) || '')}
+                  value={profile.age ?? ''}
+                  onChange={(e) => handleChange('age', e.target.value)}
+                  placeholder="e.g. 25"
                   required
                   className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl text-sm font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
@@ -218,8 +247,8 @@ export default function ProfileView({ onNavigateTab }) {
                   type="number"
                   min="0"
                   max="15"
-                  value={profile.dependents}
-                  onChange={(e) => handleChange('dependents', parseInt(e.target.value) || 0)}
+                  value={profile.dependents ?? ''}
+                  onChange={(e) => handleChange('dependents', e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl text-sm font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
@@ -229,7 +258,7 @@ export default function ProfileView({ onNavigateTab }) {
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Occupation / Job Title</label>
               <input
                 type="text"
-                value={profile.occupation}
+                value={profile.occupation ?? ''}
                 onChange={(e) => handleChange('occupation', e.target.value)}
                 placeholder="e.g. Salaried Engineer, Business Owner, Doctor"
                 className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl text-sm font-body-md text-on-surface focus:outline-none focus:border-secondary"
@@ -243,8 +272,9 @@ export default function ProfileView({ onNavigateTab }) {
                   type="number"
                   min="0"
                   step="1000"
-                  value={profile.monthlyIncome}
-                  onChange={(e) => handleChange('monthlyIncome', parseFloat(e.target.value) || 0)}
+                  value={profile.monthlyIncome ?? ''}
+                  onChange={(e) => handleChange('monthlyIncome', e.target.value)}
+                  placeholder="e.g. 60000"
                   required
                   className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl text-sm font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
@@ -256,8 +286,9 @@ export default function ProfileView({ onNavigateTab }) {
                   type="number"
                   min="0"
                   step="500"
-                  value={profile.monthlyEMIs}
-                  onChange={(e) => handleChange('monthlyEMIs', parseFloat(e.target.value) || 0)}
+                  value={profile.monthlyEMIs ?? ''}
+                  onChange={(e) => handleChange('monthlyEMIs', e.target.value)}
+                  placeholder="0 if none"
                   className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl text-sm font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
@@ -269,8 +300,8 @@ export default function ProfileView({ onNavigateTab }) {
                 type="number"
                 min="0"
                 step="1000"
-                value={profile.monthlyFixedExpenses}
-                onChange={(e) => handleChange('monthlyFixedExpenses', parseFloat(e.target.value) || 0)}
+                value={profile.monthlyFixedExpenses ?? ''}
+                onChange={(e) => handleChange('monthlyFixedExpenses', e.target.value)}
                 placeholder="Rent, groceries, utility bills"
                 className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl text-sm font-body-md text-on-surface focus:outline-none focus:border-secondary"
               />
@@ -316,7 +347,7 @@ export default function ProfileView({ onNavigateTab }) {
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Primary Financial Goal</label>
               <input
                 type="text"
-                value={profile.primaryGoal}
+                value={profile.primaryGoal ?? ''}
                 onChange={(e) => handleChange('primaryGoal', e.target.value)}
                 placeholder="e.g. Buy a Home, Wealth Accumulation, Kid's Education"
                 required
@@ -331,8 +362,9 @@ export default function ProfileView({ onNavigateTab }) {
                   type="number"
                   min="0"
                   step="50000"
-                  value={profile.targetGoalAmount}
-                  onChange={(e) => handleChange('targetGoalAmount', parseFloat(e.target.value) || 0)}
+                  value={profile.targetGoalAmount ?? ''}
+                  onChange={(e) => handleChange('targetGoalAmount', e.target.value)}
+                  placeholder="e.g. 1500000"
                   className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl text-sm font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>
@@ -343,8 +375,9 @@ export default function ProfileView({ onNavigateTab }) {
                   type="number"
                   min="35"
                   max="80"
-                  value={profile.targetRetirementAge}
-                  onChange={(e) => handleChange('targetRetirementAge', parseInt(e.target.value) || 60)}
+                  value={profile.targetRetirementAge ?? ''}
+                  onChange={(e) => handleChange('targetRetirementAge', e.target.value)}
+                  placeholder="e.g. 55"
                   className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl text-sm font-body-md text-on-surface focus:outline-none focus:border-secondary"
                 />
               </div>

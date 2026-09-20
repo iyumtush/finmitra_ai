@@ -9,6 +9,7 @@ import AIInsightView from '../views/AIInsightView';
 import ProfileView from '../views/ProfileView';
 import OnboardingModal from '../components/onboarding/OnboardingModal';
 import { useAuth } from '../context/AuthContext';
+import { profileApi } from '../api/profileApi';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -18,8 +19,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user?.email) {
       const onboardedFlag = localStorage.getItem(`finmitra_onboarded_${user.email}`);
-      if (!onboardedFlag) {
+      const isProfileDone = profileApi.isProfileCompleted(user.email);
+      // Force user to complete onboarding & financial profile setup if not completed
+      if (!onboardedFlag || !isProfileDone) {
         setIsOnboarded(false);
+      } else {
+        setIsOnboarded(true);
       }
     }
   }, [user]);
