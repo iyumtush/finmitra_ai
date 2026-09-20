@@ -262,7 +262,7 @@ export default function TransactionsView({ onNavigateTab }) {
                             <div className="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-outline shrink-0">
                               <span className="material-symbols-outlined text-[16px]">{getCategoryIcon(tx.category)}</span>
                             </div>
-                            <span className="truncate max-w-[200px] block">{tx.note || tx.title || 'Untitled'}</span>
+                            <span className="truncate max-w-[200px] block">{tx.note || tx.description || tx.title || tx.name || tx.category || 'Untitled'}</span>
                           </td>
                           <td className="py-4 px-6">
                             <span className={`px-2 py-1 rounded text-label-sm whitespace-nowrap ${isIncome ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-surface-container-high'}`}>

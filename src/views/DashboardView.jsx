@@ -409,7 +409,9 @@ export default function DashboardView({ onNavigateTab }) {
                         <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary group-hover:bg-white shrink-0">
                           <span className="material-symbols-outlined">{getCategoryIcon(tx.category)}</span>
                         </div>
-                        <span className="font-medium text-primary break-all line-clamp-1">{tx.title || 'Untitled'}</span>
+                        <span className="font-medium text-primary break-all line-clamp-1">
+                          {tx.note || tx.description || tx.title || tx.name || tx.category || 'Untitled'}
+                        </span>
                       </div>
                     </td>
                     <td className="py-4 px-4 text-on-surface-variant whitespace-nowrap">

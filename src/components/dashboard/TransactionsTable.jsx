@@ -98,7 +98,7 @@ export default function TransactionsTable({ initialType = null, showAddModal = f
                     {tx.type === 'INCOME' ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
                   </span>
                 </td>
-                <td className="font-semibold text-white">{tx.name}</td>
+                <td className="font-semibold text-white">{tx.note || tx.description || tx.name || tx.title || tx.category || 'Untitled'}</td>
                 <td>
                   <span className="badge-category">{tx.category}</span>
                 </td>
