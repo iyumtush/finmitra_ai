@@ -167,8 +167,8 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
       {/* Header */}
       <div className="bg-surface-container px-4 py-3 border-b border-outline-variant flex justify-between items-center shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center">
-            <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+          <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm flex items-center justify-center shrink-0 border border-outline-variant bg-surface-container-high">
+            <img src="/logo.png" alt="FinMitra AI" className="w-full h-full object-cover" />
           </div>
           <div>
             <h4 className="font-label-md text-primary">FinMitra AI</h4>

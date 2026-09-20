@@ -80,9 +80,12 @@ export default function OnboardingModal({ user, onComplete }) {
       <div className="onboarding-card">
         {/* Header Badge */}
         <div className="onboarding-header">
+          <div className="flex items-center justify-center mb-3">
+            <img src="/logo.png" alt="FinMitra Logo" className="w-12 h-12 rounded-xl shadow-md object-contain" />
+          </div>
           <div className="onboarding-badge">
             <Sparkles size={16} />
-            <span>Welcome to finMitra</span>
+            <span>Welcome to FinMitra</span>
           </div>
           <h2 className="onboarding-title">Let's set up your finances</h2>
           <p className="onboarding-sub">Answer 3 quick questions to customize your dashboard metrics.</p>

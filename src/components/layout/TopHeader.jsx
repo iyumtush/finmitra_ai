@@ -11,9 +11,7 @@ export default function TopHeader() {
       <div className="flex justify-between items-center px-4 md:px-8 w-full max-w-[1440px] mx-auto h-full">
         {/* Mobile Logo (Visible on mobile, hidden on desktop where Sidebar shows logo) */}
         <div className="md:hidden font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed tracking-tight flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center text-on-primary text-xs">
-            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
-          </div>
+          <img src="/logo.png" alt="FinMitra Logo" className="w-7 h-7 rounded-md object-contain shrink-0" />
           <span>FinMitra</span>
         </div>
         

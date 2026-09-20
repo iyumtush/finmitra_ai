@@ -58,9 +58,7 @@ export default function AuthPage() {
         <div className="relative z-10 flex flex-col justify-between h-full p-12 lg:p-24 max-w-[800px] mx-auto w-full">
           {/* Logo Area */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-on-primary flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
-            </div>
+            <img src="/logo.png" alt="FinMitra Logo" className="w-11 h-11 rounded-xl shadow-md shrink-0 object-contain" />
             <span className="font-headline-md text-headline-md font-bold text-on-primary tracking-tight">FinMitra</span>
           </div>
 
@@ -111,9 +109,7 @@ export default function AuthPage() {
       <div className="w-full md:w-1/2 min-h-screen flex items-center justify-center p-6 sm:p-12 relative overflow-hidden bg-surface">
         {/* Mobile Logo (Visible only on small screens) */}
         <div className="absolute top-8 left-6 md:hidden flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center text-on-primary">
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
-          </div>
+          <img src="/logo.png" alt="FinMitra Logo" className="w-8 h-8 rounded-lg shadow-sm shrink-0 object-contain" />
           <span className="font-headline-md text-headline-md text-primary tracking-tight">FinMitra</span>
         </div>
 
