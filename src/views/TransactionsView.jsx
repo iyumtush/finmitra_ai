@@ -309,7 +309,7 @@ export default function TransactionsView({ onNavigateTab }) {
                 </div>
                 <div>
                   <h3 className="font-headline-md text-headline-md text-primary">AI Receipt Scanner</h3>
-                  <p className="font-label-sm text-label-sm text-on-surface-variant">Powered by Gemini AI</p>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant">Powered by FinMitra AI</p>
                 </div>
               </div>
 
@@ -320,13 +320,13 @@ export default function TransactionsView({ onNavigateTab }) {
                 >
                   <span className="material-symbols-outlined text-[32px] text-secondary mb-2">upload_file</span>
                   <p className="font-body-md text-body-md text-on-surface font-medium">Click to Upload Receipt</p>
-                  <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Extract data automatically via AI</p>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Extract data automatically via FinMitra AI</p>
                 </div>
               ) : isScanning ? (
                 <div className="border-2 border-dashed border-secondary rounded-lg p-6 flex flex-col items-center justify-center text-center mb-6 h-40 bg-surface-container-low relative overflow-hidden">
                   <span className="material-symbols-outlined text-[32px] text-secondary mb-2 animate-bounce">receipt</span>
                   <p className="font-body-md text-body-md text-on-surface font-medium">Processing Receipt...</p>
-                  <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Extracting data via Gemini</p>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Extracting data by using FinMitra AI</p>
                   <div className="absolute bottom-0 left-0 w-full h-1 bg-surface-container-high">
                     <div className="h-full bg-secondary w-3/4 rounded-r animate-pulse"></div>
                   </div>
