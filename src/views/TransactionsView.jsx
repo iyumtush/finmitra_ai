@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { transactionApi } from '../api/transactionApi';
 import { categoryApi } from '../api/categoryApi';
 import { aiApi } from '../api/aiApi';
+import { useAuth } from '../context/AuthContext';
+import ExportDropdown from '../components/common/ExportDropdown';
 
 const BUILT_IN_CATEGORIES = [
   'Food',
@@ -16,6 +18,7 @@ const BUILT_IN_CATEGORIES = [
 ];
 
 export default function TransactionsView({ onNavigateTab }) {
+  const { user } = useAuth();
   const [txList, setTxList] = useState([]);
   const [customCategories, setCustomCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -238,7 +241,7 @@ export default function TransactionsView({ onNavigateTab }) {
             <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex-1 flex flex-col overflow-hidden h-full">
               <div className="px-6 py-4 border-b border-outline-variant bg-surface-bright flex justify-between items-center">
                 <h3 className="font-headline-md text-headline-md text-primary">Recent Activity</h3>
-                <button className="text-secondary font-label-sm text-label-sm hover:underline">Export CSV</button>
+                <ExportDropdown transactions={txList} user={user} compact={true} />
               </div>
               <div className="overflow-auto flex-1">
                 <table className="w-full text-left border-collapse min-w-[600px]">

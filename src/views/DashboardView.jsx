@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { transactionApi } from '../api/transactionApi';
 import { useAuth } from '../context/AuthContext';
+import ExportDropdown from '../components/common/ExportDropdown';
 
 const getCurrentMonthName = () => {
   return new Date().toLocaleDateString('en-US', { month: 'long' });
@@ -380,12 +381,15 @@ export default function DashboardView({ onNavigateTab }) {
       <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm mb-6">
         <div className="flex justify-between items-center mb-6">
           <h3 className="font-headline-md text-headline-md text-primary">Recent Transactions</h3>
-          <button 
-            onClick={() => onNavigateTab ? onNavigateTab('transactions') : null}
-            className="text-secondary font-label-md text-label-md hover:underline"
-          >
-            View All
-          </button>
+          <div className="flex items-center gap-3">
+            <ExportDropdown transactions={transactions} user={user} compact={true} />
+            <button 
+              onClick={() => onNavigateTab ? onNavigateTab('transactions') : null}
+              className="text-secondary font-label-md text-label-md hover:underline cursor-pointer"
+            >
+              View All
+            </button>
+          </div>
         </div>
         
         <div className="overflow-x-auto">
