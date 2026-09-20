@@ -42,7 +42,7 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
   const keys = getGeminiKeys();
   if (!keys.length) return null;
 
-  const models = ['gemini-3.5-flash', 'gemini-3.6-flash'];
+  const models = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-3.5-flash'];
   let lastError = null;
 
   // Try each API key in sequence
@@ -55,8 +55,8 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
         const parts = [{ text: prompt }];
         if (base64Image) {
           parts.push({
-            inline_data: {
-              mime_type: mimeType,
+            inlineData: {
+              mimeType: mimeType || 'image/jpeg',
               data: base64Image
             }
           });
@@ -467,24 +467,62 @@ Instructions:
   },
 
   parseReceiptImage: async (base64Image, mimeType) => {
-    const prompt = `You are a financial receipt parser. Analyze the uploaded receipt image and extract the transaction details.
-Return ONLY a valid JSON object with the following keys exactly:
-- "amount": The total numerical amount paid (number). E.g. 500. Return 0 if not found.
-- "category": Categorize the transaction into one of these: Food, Transport, Utilities, Shopping, Salary, Investment, Rent, Entertainment, Health, Other.
-- "note": A short description of the purchase (string).
-- "type": "expense" if money was paid, or "income" if money was received.
-- "date": The date of the transaction in YYYY-MM-DD format (string). Default to today's date if not visible.
+    const prompt = `You are an expert OCR financial receipt and bill parser. Analyze the uploaded bill or receipt image with high precision and extract the transaction details.
 
-Make sure the output is perfectly valid JSON without any markdown formatting wrappers around it.`;
+CRITICAL INSTRUCTIONS FOR MERCHANT / STORE / RESTAURANT / PLACE NAME:
+1. Identify the EXACT establishment, restaurant, shop, cafe, store, business, or vendor name where the money was spent (e.g. "The Lake Hill", "Starbucks", "D-Mart", "McDonald's").
+2. Look at the very top of the bill/receipt header, title, or logo above the address, phone number, GSTIN, table number, or itemized list.
+3. NEVER return "Unknown Merchant" or generic descriptions like "Receipt" if any place or business title is visible.
+4. If there is a business email (e.g. reservation@thelakehill.com), phone, or website, use it to assist in determining the exact establishment name.
+
+CRITICAL INSTRUCTIONS FOR AMOUNT:
+1. Extract the final payable total amount paid (look for "Total", "Grand Total", "Due", "Bill Amount", or final printed ₹/Rs figure).
+2. Return a pure number (e.g. 1650 for 1,650.00 Rs).
+
+CRITICAL INSTRUCTIONS FOR CATEGORY:
+Select the single most accurate category from:
+- "Food" (Restaurants, Cafes, Groceries, Dining, Food delivery, Eateries)
+- "Travel & Transport" (Fuel, Taxi, Cab, Auto, Metro, Flight, Train, Parking)
+- "Online Shopping" (E-commerce, Clothing, Electronics, Personal items)
+- "Utilities" (Electricity, Water, Gas, Mobile, Internet, Wi-Fi)
+- "Entertainment" (Movies, Streaming, Gaming, Events)
+- "Health" (Pharmacy, Doctor, Hospital, Medicines)
+- "Rent"
+- "Salary"
+- "Other"
+
+Return ONLY a valid JSON object matching this structure:
+{
+  "merchant": "Exact business/place name (e.g. The Lake Hill)",
+  "note": "Exact business/place name (e.g. The Lake Hill)",
+  "amount": 1650,
+  "category": "Food",
+  "date": "YYYY-MM-DD",
+  "type": "EXPENSE"
+}
+
+Format date strictly as YYYY-MM-DD (e.g. "2024-08-16").
+Do not wrap in extra explanation. Return valid JSON only.`;
 
     try {
       let aiResponse = await callGeminiREST(prompt, true, base64Image, mimeType);
 
-
       if (aiResponse) {
-        // Strip markdown backticks if Gemini still added them despite responseMimeType=application/json
-        const jsonString = aiResponse.replace(/```json\n?|```/g, '').trim();
-        return JSON.parse(jsonString);
+        const cleanStr = aiResponse.replace(/```json\n?|```/g, '').trim();
+        const jsonMatch = cleanStr.match(/\{[\s\S]*\}/);
+        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : cleanStr);
+
+        const merchant = (parsed.merchant || parsed.store || parsed.vendor || parsed.place || parsed.business || parsed.name || '').trim();
+        const note = (parsed.note || merchant || parsed.description || 'Receipt Expense').trim();
+
+        return {
+          merchant: merchant || note || 'Store / Merchant',
+          note: note || merchant || 'Receipt Expense',
+          amount: parseFloat(parsed.amount) || 0,
+          category: parsed.category || 'Food',
+          date: parsed.date || new Date().toISOString().split('T')[0],
+          type: (parsed.type || 'EXPENSE').toUpperCase()
+        };
       }
     } catch (err) {
       console.error('Error parsing receipt with Gemini:', err);

@@ -19,10 +19,10 @@ export const transactionApi = {
       .from('transactions')
       .insert([{
         user_id: user.id,
-        amount: transactionData.amount,
-        category: transactionData.category,
-        note: transactionData.note || '',
-        type: transactionData.type,
+        amount: parseFloat(transactionData.amount),
+        category: transactionData.category || 'Other',
+        note: transactionData.note || transactionData.merchant || transactionData.description || 'Expense',
+        type: (transactionData.type || 'EXPENSE').toUpperCase(),
         date: transactionData.date || new Date().toISOString().split('T')[0]
       }])
       .select()

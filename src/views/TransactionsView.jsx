@@ -158,11 +158,16 @@ export default function TransactionsView({ onNavigateTab }) {
         const base64String = reader.result.split(',')[1];
         const res = await aiApi.parseReceiptImage(base64String, file.type);
         if (res) {
+          const merchantName = (res.merchant && res.merchant !== 'Unknown Merchant')
+            ? res.merchant
+            : (res.note && res.note !== 'Unknown Merchant' ? res.note : 'Store / Merchant');
+
           setScannedData({
-            merchant: res.merchant || 'Unknown Merchant',
+            merchant: merchantName,
             date: res.date || new Date().toISOString().split('T')[0],
             amount: res.amount || 0,
-            category: res.category || 'Food & Dining',
+            category: res.category || 'Food',
+            note: res.note || merchantName
           });
         }
         setIsScanning(false);
@@ -177,10 +182,14 @@ export default function TransactionsView({ onNavigateTab }) {
 
   const saveScannedTransaction = () => {
     if (!scannedData) return;
+    const finalNote = (scannedData.merchant && scannedData.merchant !== 'Unknown Merchant')
+      ? scannedData.merchant
+      : (scannedData.note || scannedData.category || 'Expense');
+
     handleSubmit(null, {
       amount: parseFloat(scannedData.amount),
       category: scannedData.category,
-      note: scannedData.merchant,
+      note: finalNote,
       type: 'EXPENSE',
       date: scannedData.date
     });

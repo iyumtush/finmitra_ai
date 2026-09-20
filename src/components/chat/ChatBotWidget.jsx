@@ -111,10 +111,22 @@ export default function ChatBotWidget({ isFloating = false, onClose }) {
         
         let aiMsg;
         if (parsedData && parsedData.amount > 0 && parsedData.category) {
-          await transactionApi.createTransaction(parsedData);
+          const merchantName = (parsedData.merchant && parsedData.merchant !== 'Unknown Merchant')
+            ? parsedData.merchant
+            : (parsedData.note || 'Receipt Expense');
+
+          const txPayload = {
+            amount: parseFloat(parsedData.amount),
+            category: parsedData.category,
+            note: merchantName,
+            type: (parsedData.type || 'EXPENSE').toUpperCase(),
+            date: parsedData.date || new Date().toISOString().split('T')[0]
+          };
+
+          await transactionApi.createTransaction(txPayload);
           aiMsg = {
             sender: 'ai',
-            text: `Successfully extracted and saved transaction!\nAmount: ₹${parsedData.amount}\nCategory: ${parsedData.category}\nDate: ${parsedData.date}`,
+            text: `Successfully extracted and saved receipt transaction!\nMerchant: ${merchantName}\nAmount: ₹${txPayload.amount.toLocaleString('en-IN')}\nCategory: ${txPayload.category}\nDate: ${txPayload.date}`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           };
         } else {
