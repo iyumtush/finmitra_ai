@@ -199,64 +199,62 @@ export default function AuthPage() {
         </div>
       </div>
 
-      {/* ─── Right Side: Clean Authentication Form ─── */}
-      <div className={`w-full md:w-1/2 min-h-screen flex items-center justify-center p-6 sm:p-12 relative overflow-hidden transition-colors ${isDarkMode ? 'bg-[#0a0e17]' : 'bg-slate-50'}`}>
+      {/* ─── Right Side: Minimalist, Professional Financial Auth ─── */}
+      <div className={`w-full md:w-1/2 min-h-screen flex items-center justify-center p-6 sm:p-10 relative transition-colors duration-150 ${isDarkMode ? 'bg-[#080c14]' : 'bg-[#f8fafc]'}`}>
         
         {/* Mobile Header (Hidden on Desktop) */}
         <div className="absolute top-6 left-6 md:hidden flex items-center gap-2.5">
           <img src="/logo.png" alt="FinMitra Logo" className="w-8 h-8 rounded-lg shadow-sm object-contain" />
-          <span className="text-lg font-bold tracking-tight">FinMitra</span>
+          <span className="text-base font-semibold tracking-tight">FinMitra</span>
         </div>
 
-        {/* Theme Toggle Pill */}
+        {/* Minimalist Theme Toggle Button */}
         <button
           onClick={toggleTheme}
-          className={`absolute top-6 right-6 md:right-10 px-3.5 py-1.5 rounded-full flex items-center gap-2 text-xs font-semibold transition-all cursor-pointer shadow-sm ${
+          className={`absolute top-6 right-6 md:right-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
             isDarkMode 
-              ? 'bg-slate-800/90 text-slate-200 border border-slate-700 hover:bg-slate-700' 
-              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+              ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700' 
+              : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-sm'
           }`}
           title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} Mode`}
         >
-          <span className="material-symbols-outlined text-[16px] text-amber-400">
+          <span className="material-symbols-outlined text-[15px]">
             {isDarkMode ? 'light_mode' : 'dark_mode'}
           </span>
-          <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+          <span>{isDarkMode ? 'Light' : 'Dark'}</span>
         </button>
 
-        {/* Form Container Card */}
-        <div className="w-full max-w-md pt-8 md:pt-0">
-          <div className={`rounded-2xl p-8 sm:p-10 transition-all ${
+        {/* Form Container Card - Clean, Matte, Finance-Grade */}
+        <div className="w-full max-w-[400px] pt-8 md:pt-0">
+          <div className={`rounded-xl p-7 sm:p-8 transition-colors border ${
             isDarkMode
-              ? 'bg-[#121826]/95 border border-slate-800/90 shadow-2xl shadow-black/60 backdrop-blur-xl'
-              : 'bg-white border border-slate-200 shadow-xl shadow-slate-200/60'
+              ? 'bg-[#0e131f] border-slate-800 shadow-sm'
+              : 'bg-white border-slate-200 shadow-sm'
           }`}>
             
             {/* Header */}
-            <div className="mb-7 text-center">
-              <h2 className={`text-2xl sm:text-3xl font-extrabold tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                {isLogin ? 'Welcome Back' : 'Create Your Account'}
+            <div className="mb-6">
+              <h2 className={`text-xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                {isLogin ? 'Sign in' : 'Create account'}
               </h2>
-              <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                 {isLogin 
-                  ? 'Sign in to access your personal dashboard & AI advisor.' 
-                  : 'Start tracking expenses and personal finances.'}
+                  ? 'Access your personal financial dashboard.' 
+                  : 'Get started with intelligent financial tracking.'}
               </p>
             </div>
 
-            {/* Tab Switcher (Segmented Control) */}
-            <div className={`flex p-1 rounded-xl mb-6 ${isDarkMode ? 'bg-slate-900/90 border border-slate-800' : 'bg-slate-100 border border-slate-200/80'}`}>
+            {/* Clean Tab Switcher */}
+            <div className="flex border-b border-slate-200 dark:border-slate-800 mb-6 gap-6">
               <button
                 type="button"
                 onClick={() => { setIsLogin(true); setLocalError(''); setSuccessMessage(''); }}
-                className={`flex-1 py-2 text-center text-xs sm:text-sm font-semibold rounded-lg transition-all cursor-pointer ${
+                className={`pb-2.5 text-xs font-semibold tracking-wide uppercase transition-colors cursor-pointer border-b-2 -mb-[1px] ${
                   isLogin
                     ? isDarkMode 
-                      ? 'bg-slate-800 text-white shadow-sm' 
-                      : 'bg-white text-slate-900 shadow-sm'
-                    : isDarkMode 
-                      ? 'text-slate-400 hover:text-slate-200' 
-                      : 'text-slate-500 hover:text-slate-900'
+                      ? 'border-white text-white' 
+                      : 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
                 }`}
               >
                 Sign In
@@ -264,14 +262,12 @@ export default function AuthPage() {
               <button
                 type="button"
                 onClick={() => { setIsLogin(false); setLocalError(''); setSuccessMessage(''); }}
-                className={`flex-1 py-2 text-center text-xs sm:text-sm font-semibold rounded-lg transition-all cursor-pointer ${
+                className={`pb-2.5 text-xs font-semibold tracking-wide uppercase transition-colors cursor-pointer border-b-2 -mb-[1px] ${
                   !isLogin
                     ? isDarkMode 
-                      ? 'bg-slate-800 text-white shadow-sm' 
-                      : 'bg-white text-slate-900 shadow-sm'
-                    : isDarkMode 
-                      ? 'text-slate-400 hover:text-slate-200' 
-                      : 'text-slate-500 hover:text-slate-900'
+                      ? 'border-white text-white' 
+                      : 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
                 }`}
               >
                 Create Account
@@ -280,14 +276,14 @@ export default function AuthPage() {
 
             {/* Error / Success Alerts */}
             {(localError || error) && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 text-red-500 dark:text-red-300 rounded-xl text-xs flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 text-red-500 dark:text-red-300 rounded-lg text-xs flex items-center gap-2">
+                <span className="material-symbols-outlined text-[15px] shrink-0">error</span>
                 <span>{localError || error}</span>
               </div>
             )}
             {successMessage && (
-              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 rounded-xl text-xs flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px] shrink-0">check_circle</span>
+              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 rounded-lg text-xs flex items-center gap-2">
+                <span className="material-symbols-outlined text-[15px] shrink-0">check_circle</span>
                 <span>{successMessage}</span>
               </div>
             )}
@@ -295,77 +291,64 @@ export default function AuthPage() {
             {/* Form */}
             <form className="space-y-4" onSubmit={handleSubmit}>
               {!isLogin && (
-                <div className="space-y-1">
-                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                <div className="space-y-1.5">
+                  <label className={`block text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
                     Full Name
                   </label>
-                  <div className="relative">
-                    <span className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                      <span className="material-symbols-outlined text-[18px]">person</span>
-                    </span>
-                    <input
-                      className={`w-full h-11 pl-10 pr-4 rounded-xl border text-sm outline-none transition-all ${
-                        isDarkMode
-                          ? 'bg-slate-900/80 border-slate-700/80 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
-                          : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-600/20'
-                      }`}
-                      placeholder="e.g. Rahul Sharma"
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required={!isLogin}
-                    />
-                  </div>
+                  <input
+                    className={`w-full h-10 px-3 rounded-lg border text-sm transition-colors outline-none ${
+                      isDarkMode
+                        ? 'bg-[#080c14] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-slate-400 focus:ring-1 focus:ring-slate-400'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900'
+                    }`}
+                    placeholder="Rahul Sharma"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required={!isLogin}
+                  />
                 </div>
               )}
 
-              <div className="space-y-1">
-                <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+              <div className="space-y-1.5">
+                <label className={`block text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
                   Email Address
                 </label>
-                <div className="relative">
-                  <span className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                    <span className="material-symbols-outlined text-[18px]">mail</span>
-                  </span>
-                  <input
-                    className={`w-full h-11 pl-10 pr-4 rounded-xl border text-sm outline-none transition-all ${
-                      isDarkMode
-                        ? 'bg-slate-900/80 border-slate-700/80 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
-                        : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-600/20'
-                    }`}
-                    placeholder="you@domain.com"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
+                <input
+                  className={`w-full h-10 px-3 rounded-lg border text-sm transition-colors outline-none ${
+                    isDarkMode
+                      ? 'bg-[#080c14] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-slate-400 focus:ring-1 focus:ring-slate-400'
+                      : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900'
+                  }`}
+                  placeholder="name@example.com"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className={`block text-xs font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                  <label className={`block text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
                     Password
                   </label>
                   {isLogin && (
                     <button
                       type="button"
-                      onClick={() => alert('Please enter your email and contact your workspace administrator to reset credentials.')}
-                      className="text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
+                      onClick={() => alert('Please contact your administrator or check Supabase settings to reset your password.')}
+                      className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                     >
                       Forgot?
                     </button>
                   )}
                 </div>
                 <div className="relative">
-                  <span className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                    <span className="material-symbols-outlined text-[18px]">lock</span>
-                  </span>
                   <input
-                    className={`w-full h-11 pl-10 pr-11 rounded-xl border text-sm outline-none transition-all ${
+                    className={`w-full h-10 pl-3 pr-14 rounded-lg border text-sm transition-colors outline-none ${
                       isDarkMode
-                        ? 'bg-slate-900/80 border-slate-700/80 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
-                        : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-600/20'
+                        ? 'bg-[#080c14] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-slate-400 focus:ring-1 focus:ring-slate-400'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900'
                     }`}
                     placeholder="••••••••"
                     type={showPassword ? "text" : "password"}
@@ -374,52 +357,54 @@ export default function AuthPage() {
                     required
                   />
                   <button
-                    className={`absolute inset-y-0 right-0 pr-3.5 flex items-center transition-colors ${isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    title={showPassword ? "Hide password" : "Show password"}
+                    className={`absolute inset-y-0 right-0 pr-3 flex items-center text-xs font-medium cursor-pointer transition-colors ${
+                      isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-[18px]">
-                      {showPassword ? 'visibility_off' : 'visibility'}
-                    </span>
+                    {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {/* Submit Button - Solid, Authoritative Matte */}
               <button
-                className="w-full h-11 mt-2 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md shadow-cyan-600/20 active:scale-[0.98] disabled:opacity-70 cursor-pointer"
+                className={`w-full h-10 mt-1 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 ${
+                  isDarkMode
+                    ? 'bg-white text-slate-950 hover:bg-slate-200 active:bg-slate-300'
+                    : 'bg-slate-900 text-white hover:bg-slate-800 active:bg-black'
+                }`}
                 type="submit"
                 disabled={loading}
               >
-                {loading ? 'Authenticating...' : (isLogin ? 'Sign In to Dashboard' : 'Create My Account')}
-                {!loading && <span className="material-symbols-outlined text-[16px]">arrow_forward</span>}
+                {loading ? 'Authenticating...' : (isLogin ? 'Sign In' : 'Create Account')}
               </button>
             </form>
 
             {/* Divider */}
-            <div className="relative my-6">
+            <div className="relative my-5">
               <div className="absolute inset-0 flex items-center">
                 <div className={`w-full border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}></div>
               </div>
-              <div className="relative flex justify-center text-xs">
-                <span className={`px-3 uppercase font-medium ${isDarkMode ? 'bg-[#121826] text-slate-500' : 'bg-white text-slate-400'}`}>
-                  Or continue with
+              <div className="relative flex justify-center text-[10px] tracking-wider uppercase">
+                <span className={`px-2 font-medium ${isDarkMode ? 'bg-[#0e131f] text-slate-500' : 'bg-white text-slate-400'}`}>
+                  Or
                 </span>
               </div>
             </div>
 
-            {/* Social / OAuth Options */}
+            {/* Social / OAuth Button */}
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              className={`w-full h-11 rounded-xl border text-xs sm:text-sm font-medium flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+              className={`w-full h-10 rounded-lg border text-xs font-medium flex items-center justify-center gap-2.5 transition-colors cursor-pointer ${
                 isDarkMode
-                  ? 'bg-slate-900/60 border-slate-700/80 text-slate-200 hover:bg-slate-800'
-                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm'
+                  ? 'bg-transparent border-slate-700/80 text-slate-300 hover:bg-slate-800/60'
+                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 shadow-xs'
               }`}
             >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
@@ -429,11 +414,10 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Privacy Footnote */}
-          <div className="text-center mt-6">
-            <p className={`text-[11px] ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>
-              Your financial records are strictly private and secure to your account.
-            </p>
+          {/* Privacy & Security Footnote */}
+          <div className="text-center mt-5 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
+            <span className="material-symbols-outlined text-[13px]">lock</span>
+            <span>Private & encrypted financial workspace</span>
           </div>
         </div>
       </div>
