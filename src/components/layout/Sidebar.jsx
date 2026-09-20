@@ -9,6 +9,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'transactions', icon: 'receipt_long', label: 'Transactions' },
     { id: 'budget', icon: 'account_balance_wallet', label: 'Budget' },
     { id: 'insights', icon: 'psychology', label: 'AI Insights' },
+    { id: 'profile', icon: 'account_circle', label: 'Profile & Goals' },
   ];
 
   return (

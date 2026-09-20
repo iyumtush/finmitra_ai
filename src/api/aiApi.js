@@ -1,5 +1,6 @@
 import { transactionApi } from './transactionApi';
 import { budgetApi } from './budgetApi';
+import { profileApi } from './profileApi';
 
 // ─── Gemini REST API (bypasses npm package v1beta issues) ───
 const getGeminiKeys = () => {
@@ -131,7 +132,8 @@ const buildFinancialContext = (transactions, budgets) => {
 };
 
 // ─── Smart Financial Advisor Fallback ───
-const smartFinancialAdvisor = (message, ctx) => {
+const smartFinancialAdvisor = (message, ctx, userProfile = null) => {
+  const profile = userProfile || profileApi.getUserProfile();
   const text = message.toLowerCase().trim();
   const { totalIncome, totalExpense, netSavings, savingsRate, catSpends, sortedCats, topCat, topCatAmount } = ctx;
 
@@ -182,40 +184,115 @@ const smartFinancialAdvisor = (message, ctx) => {
 
   // ── Non-finance filter ──
   const nonFinanceWords = ['weather', 'recipe', 'movie', 'game', 'football', 'cricket', 'who is', 'python code', 'java code', 'song', 'joke', 'tell me a story'];
-  const financeWords = ['sip', 'invest', 'rupee', 'rs', '₹', 'money', 'budget', 'expense', 'income', 'bank', 'tax', 'loan', 'cost', 'pay', 'buy', 'afford', 'save', 'saving', 'salary', 'emi', 'fd', 'mutual', 'stock', 'nifty', 'lakh', 'crore', 'interest', 'return', 'profit', 'loss', 'debt', 'credit', 'insurance', 'goal', 'plan', 'month', 'year', 'spend', 'finance', 'wealth', 'portfolio', 'asset'];
+  const financeWords = ['sip', 'invest', 'rupee', 'rs', '₹', 'money', 'budget', 'expense', 'income', 'bank', 'tax', 'loan', 'cost', 'pay', 'buy', 'afford', 'save', 'saving', 'salary', 'emi', 'fd', 'mutual', 'stock', 'nifty', 'lakh', 'crore', 'interest', 'return', 'profit', 'loss', 'debt', 'credit', 'insurance', 'goal', 'plan', 'month', 'year', 'spend', 'finance', 'wealth', 'portfolio', 'asset', 'profile', 'age', 'risk', 'retire', 'allocation'];
   const isNonFinance = nonFinanceWords.some(k => text.includes(k)) && !financeWords.some(k => text.includes(k));
 
   if (isNonFinance) {
     return ` FinMitra AI Assistant: I specialize in personal finance, investments, budgets, savings, and wealth management. Please ask me a finance-related question!`;
   }
 
+  // ── User Profile & Financial Persona Query ──
+  if (text.includes('profile') || text.includes('who am i') || text.includes('my detail') || text.includes('persona')) {
+    const age = profile.age || 28;
+    const equityPct = Math.max(20, Math.min(85, 100 - age));
+    const debtPct = 100 - equityPct;
+    const dti = profile.monthlyIncome > 0 ? ((profile.monthlyEMIs / profile.monthlyIncome) * 100).toFixed(1) : '0.0';
+
+    return ` User Financial Profile & Persona Summary:
+- Name: ${profile.fullName || 'User'}
+- Age: ${profile.age} years | Occupation: ${profile.occupation}
+- Monthly Income: ₹${(profile.monthlyIncome || totalIncome).toLocaleString('en-IN')}
+- Fixed Expenses: ₹${profile.monthlyFixedExpenses.toLocaleString('en-IN')} | EMIs: ₹${profile.monthlyEMIs.toLocaleString('en-IN')} (DTI: ${dti}%)
+- Risk Appetite: ${profile.riskTolerance}
+- Primary Financial Goal: ${profile.primaryGoal} (Target: ₹${profile.targetGoalAmount.toLocaleString('en-IN')})
+- Target Retirement Age: ${profile.targetRetirementAge} (${Math.max(1, profile.targetRetirementAge - age)} years to retirement)
+- Recommended Asset Split (100 - Age rule): ${equityPct}% Equity / Index Funds | ${debtPct}% Debt / Fixed Income
+- Recommended Emergency Buffer: ₹${(profile.monthlyFixedExpenses * 6).toLocaleString('en-IN')} (6 months fixed costs)`;
+  }
+
+  // ── Asset Allocation / Portfolio Split Questions ──
+  if (text.includes('asset allocation') || text.includes('allocation') || text.includes('portfolio split') || text.includes('equity') || text.includes('100 - age') || (text.includes('how') && text.includes('invest') && text.includes('my money'))) {
+    const age = profile.age || 28;
+    const equityPct = Math.max(20, Math.min(85, 100 - age));
+    const debtPct = 100 - equityPct;
+
+    return ` Personalized Asset Allocation Strategy (Age ${age}, ${profile.riskTolerance} Risk):
+- Equity & Growth Assets: ${equityPct}% (e.g., Nifty 50 Index Funds, Flexi-Cap Funds, Global Equities)
+- Debt & Fixed Income: ${debtPct}% (e.g., High-Yield FDs, Corporate Bonds, Gold, Liquid Funds)
+
+Why this fits your profile:
+- Based on the standard 100 - Age rule, at age ${age} you have ${Math.max(1, profile.targetRetirementAge - age)} years until your target retirement age of ${profile.targetRetirementAge}. This provides ample compounding runway for higher equity participation.
+- Risk Tolerance Alignment: As a ${profile.riskTolerance} investor, prioritize large-cap and index mutual funds before individual small-cap stocks.`;
+  }
+
+  // ── Retirement Questions ──
+  if (text.includes('retire') || text.includes('retirement') || text.includes('pension')) {
+    const age = profile.age || 28;
+    const retAge = profile.targetRetirementAge || 55;
+    const yearsLeft = Math.max(1, retAge - age);
+    const monthsLeft = yearsLeft * 12;
+    // Assume monthly expenses in retirement are current fixed expenses
+    const exp = profile.monthlyFixedExpenses || 28000;
+    // Rule of thumb: 25-30x annual expenses
+    const estimatedCorpus = exp * 12 * 25;
+    // Rough monthly SIP required at 12% CAGR to reach corpus
+    const r = 0.12 / 12;
+    const sipNeeded = Math.round(estimatedCorpus * r / ((Math.pow(1 + r, monthsLeft) - 1) * (1 + r)));
+
+    return ` Personalized Retirement Roadmap (Target Age: ${retAge}):
+- Current Age: ${age} | Years to Retirement: ${yearsLeft} years
+- Estimated Retirement Corpus Target (25x annual expenses): ₹${estimatedCorpus.toLocaleString('en-IN')}
+- Recommended Monthly SIP at ~12% CAGR: ₹${sipNeeded.toLocaleString('en-IN')}/month
+- Current Net Savings Surplus: ₹${netSavings.toLocaleString('en-IN')}/month
+
+Action Plan:
+- ${netSavings >= sipNeeded ? `Great news! Your current monthly surplus of ₹${netSavings.toLocaleString('en-IN')} easily covers the required retirement SIP of ₹${sipNeeded.toLocaleString('en-IN')}.` : `Your current surplus is ₹${netSavings.toLocaleString('en-IN')}. Consider starting an initial SIP of ₹${Math.round(netSavings * 0.4).toLocaleString('en-IN')} and step it up by 10% each year with salary increments.`}
+- Maintain your emergency fund of ₹${(exp * 6).toLocaleString('en-IN')} so you never have to break retirement investments prematurely.`;
+  }
+
+  // ── Emergency Fund Questions ──
+  if (text.includes('emergency') || text.includes('cushion') || text.includes('buffer')) {
+    const fixed = profile.monthlyFixedExpenses || 28000;
+    const target6Months = fixed * 6;
+    const currentMonths = profile.emergencyFundMonths || 0;
+    const currentSaved = fixed * currentMonths;
+    const gap = Math.max(0, target6Months - currentSaved);
+
+    return ` Emergency Fund Health Check:
+- Monthly Fixed Expenses: ₹${fixed.toLocaleString('en-IN')}
+- Ideal 6-Month Emergency Cushion: ₹${target6Months.toLocaleString('en-IN')}
+- Current Emergency Coverage: ${currentMonths} months (~₹${currentSaved.toLocaleString('en-IN')})
+- Remaining Gap to Bridge: ₹${gap.toLocaleString('en-IN')}
+
+Advice:
+${gap === 0 ? 'Your emergency fund is fully funded! All additional surplus can be deployed into long-term investments like index funds or your primary financial goal.' : `Set aside ₹${Math.round(Math.min(netSavings * 0.5, gap / 6)).toLocaleString('en-IN')}/month in a high-yield liquid fund or sweep-in FD until the 6-month buffer of ₹${target6Months.toLocaleString('en-IN')} is fully achieved.`}`;
+  }
+
   // ── Saving Goal / Target Questions ──
-  if ((text.includes('save') || text.includes('saving') || text.includes('make') || text.includes('goal') || text.includes('target') || text.includes('reach') || text.includes('accumulate') || text.includes('need')) && targetAmount > 0) {
-    const effectiveMonths = months || 3; // default 3 months
-    const monthlySavingNeeded = Math.ceil(targetAmount / effectiveMonths);
+  if ((text.includes('save') || text.includes('saving') || text.includes('make') || text.includes('goal') || text.includes('target') || text.includes('reach') || text.includes('accumulate') || text.includes('need')) && (targetAmount > 0 || text.includes('primary'))) {
+    const effectiveAmount = targetAmount > 0 ? targetAmount : profile.targetGoalAmount;
+    const effectiveGoalName = targetAmount > 0 ? 'Custom Goal' : profile.primaryGoal;
+    const effectiveMonths = months || 24; // default 24 months for goal
+    const monthlySavingNeeded = Math.ceil(effectiveAmount / effectiveMonths);
     const gap = monthlySavingNeeded - netSavings;
     const isAchievable = netSavings >= monthlySavingNeeded;
 
-    let advice = ` Financial Goal Analysis: Goal: Save ₹${targetAmount.toLocaleString('en-IN')} in ${effectiveMonths} months
-
- Your Current Financials: - Monthly Income: ₹${totalIncome.toLocaleString('en-IN')}
-- Monthly Expenses: ₹${totalExpense.toLocaleString('en-IN')}
+    let advice = ` Financial Goal Analysis:
+- Target Goal: ${effectiveGoalName}
+- Target Amount: ₹${effectiveAmount.toLocaleString('en-IN')} over ${effectiveMonths} months
 - Current Monthly Surplus: ₹${netSavings.toLocaleString('en-IN')} (${savingsRate}% savings rate)
-
- Monthly Savings Required: ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month\n`;
+- Monthly Allocation Required: ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month\n`;
 
     if (isAchievable) {
-      advice += `\n This goal is achievable! You save ₹${netSavings.toLocaleString('en-IN')}/month, which is more than the required ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month.
-- You'll still have ₹${(netSavings - monthlySavingNeeded).toLocaleString('en-IN')}/month remaining after setting aside the goal amount.
-
- Tip: Park these savings in a high-yield savings account or liquid fund to earn interest while you save!`;
+      advice += `\n Achievable! You currently save ₹${netSavings.toLocaleString('en-IN')}/month, which comfortably covers the required ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month.
+- Remaining free cashflow after goal SIP: ₹${(netSavings - monthlySavingNeeded).toLocaleString('en-IN')}/month.
+- Recommendation: Automate this into a dedicated Goal-based SIP on your salary date.`;
     } else {
-      advice += `\n Stretch Goal: You need ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month but currently save ₹${netSavings.toLocaleString('en-IN')}/month.
+      advice += `\n Stretch Goal: Required ₹${monthlySavingNeeded.toLocaleString('en-IN')}/month exceeds current surplus ₹${netSavings.toLocaleString('en-IN')}/month.
 - Shortfall: ₹${gap.toLocaleString('en-IN')}/month
-
- Action Plan to Bridge the Gap: - Reduce ${topCat} expenses (currently ₹${topCatAmount.toLocaleString('en-IN')}) by ₹${Math.min(gap, topCatAmount).toLocaleString('en-IN')}/month.
-- Extend the timeline to ${Math.ceil(targetAmount / netSavings)} months to comfortably reach your goal.
-- Consider a short-term FD or Recurring Deposit for disciplined saving.`;
+- Solutions:
+  1. Extend timeline to ${Math.ceil(effectiveAmount / (netSavings || 1))} months.
+  2. Optimize ${topCat} category spending (currently ₹${topCatAmount.toLocaleString('en-IN')}) to unlock more surplus.`;
     }
     return advice;
   }
@@ -336,42 +413,55 @@ export const aiApi = {
     try {
       const transactions = await transactionApi.getTransactions();
       const budgets = await budgetApi.getBudgets();
+      const userProfile = profileApi.getUserProfile();
       const ctx = buildFinancialContext(transactions, budgets);
 
       let monthlySummary = `You earned ₹${ctx.totalIncome.toLocaleString('en-IN')} and spent ₹${ctx.totalExpense.toLocaleString('en-IN')}, saving ₹${ctx.netSavings.toLocaleString('en-IN')} (${ctx.savingsRate}% savings rate).`;
       let savingSuggestions = [
-        "Aim to allocate at least 20% of your income into emergency funds or SIPs.",
+        `Aim to allocate at least 20% of your income into emergency funds or SIPs towards your goal of ${userProfile.primaryGoal}.`,
         "Review top recurring expense categories to identify unnecessary costs.",
-        "Maintain a liquid emergency buffer covering 3-6 months of essential living expenses."
+        `Maintain a liquid emergency buffer of ₹${(userProfile.monthlyFixedExpenses * 6).toLocaleString('en-IN')} (6 months of fixed expenses).`
       ];
-      let growthIdea = "Consider investing your monthly net savings into low-cost Nifty 50 Index Funds or High-Yield Fixed Deposits to beat inflation.";
+      let growthIdea = `Based on your ${userProfile.riskTolerance} risk profile and age ${userProfile.age}, allocate ${Math.max(20, Math.min(85, 100 - userProfile.age))}% of surplus into Nifty 50 / Flexi-Cap equity funds and ${100 - Math.max(20, Math.min(85, 100 - userProfile.age))}% into fixed income/gold.`;
 
       // Try Gemini REST API for richer insights
       try {
-        const prompt = `You are FinMitra AI Assistant, an expert personal finance and wealth management advisor. Analyze the following live financial data for the user:
-- Total Income: ₹${ctx.totalIncome}
-- Total Expenses: ₹${ctx.totalExpense}
+        const prompt = `You are FinMitra AI Assistant, an expert personal finance and wealth management advisor. Analyze the following live financial data and user persona:
+User Profile:
+- Name: ${userProfile.fullName}
+- Age: ${userProfile.age}
+- Occupation: ${userProfile.occupation}
+- Risk Tolerance: ${userProfile.riskTolerance}
+- Primary Financial Goal: ${userProfile.primaryGoal} (Target: ₹${userProfile.targetGoalAmount})
+- Target Retirement Age: ${userProfile.targetRetirementAge}
+- Monthly Income: ₹${userProfile.monthlyIncome || ctx.totalIncome}
+- Monthly Fixed Expenses: ₹${userProfile.monthlyFixedExpenses}
+- Monthly EMIs: ₹${userProfile.monthlyEMIs}
+- Dependents: ${userProfile.dependents}
+
+Live Financial Data:
+- Total Recorded Income: ₹${ctx.totalIncome}
+- Total Recorded Expenses: ₹${ctx.totalExpense}
 - Net Savings: ₹${ctx.netSavings}
 - Savings Rate: ${ctx.savingsRate}%
 - Top Expense Category: ${ctx.topCat} (₹${ctx.topCatAmount})
 - Recent Transactions: ${JSON.stringify(transactions.slice(0, 10))}
 - Active Budgets: ${JSON.stringify(budgets)}
 
-Provide a highly personalized, flexible, and actionable financial insight report. Do not use generic advice; reference their actual numbers, budgets, and spending habits directly.
+Provide a highly personalized, flexible, and actionable financial insight report. Do not use generic advice; directly leverage their user profile (age ${userProfile.age}, goal "${userProfile.primaryGoal}", ${userProfile.riskTolerance} risk profile) and real spending numbers.
 
 Respond ONLY with a perfectly formatted JSON object containing EXACTLY these keys:
 {
-  "monthlySummary": "A highly detailed, encouraging, and analytical summary (3-4 sentences) of their current month's financial health, mentioning their specific numbers and biggest spending areas.",
+  "monthlySummary": "A highly detailed, encouraging, and analytical summary (3-4 sentences) of their current financial health, mentioning their specific numbers, primary goal, and biggest spending areas.",
   "savingSuggestions": [
     "A highly specific, actionable saving tip based on their top expense category or budget limits",
-    "A personalized suggestion on how to improve their current savings rate of ${ctx.savingsRate}%",
-    "A practical daily/weekly habit change tailored to their recent transactions"
+    "A personalized suggestion on how to improve their current savings rate of ${ctx.savingsRate}% while protecting their emergency fund",
+    "A practical daily/weekly habit change tailored to their recent transactions and fixed costs"
   ],
-  "growthIdea": "A specific wealth-building or investment strategy (e.g., SIP, FD, or debt payoff) based on their net savings of ₹${ctx.netSavings}. Be specific about where they should put this surplus."
+  "growthIdea": "A specific wealth-building or investment strategy tailored to their age (${userProfile.age}), ${userProfile.riskTolerance} risk profile, and primary goal of ${userProfile.primaryGoal}. Be specific about where they should put their monthly surplus of ₹${ctx.netSavings}."
 }`;
 
         let rawText = await callGeminiREST(prompt, true);
-
 
         if (rawText) {
           const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -415,11 +505,14 @@ Respond ONLY with a perfectly formatted JSON object containing EXACTLY these key
   sendMessage: async (message) => {
     let transactions = [];
     let budgets = [];
+    let userProfile = null;
     try {
       transactions = await transactionApi.getTransactions();
       budgets = await budgetApi.getBudgets();
+      userProfile = profileApi.getUserProfile();
     } catch (e) {
       console.warn('Could not fetch context:', e);
+      userProfile = profileApi.getUserProfile();
     }
 
     const ctx = buildFinancialContext(transactions, budgets);
@@ -427,32 +520,59 @@ Respond ONLY with a perfectly formatted JSON object containing EXACTLY these key
     // 1. Try Gemini REST API first
     try {
       const contextData = JSON.stringify({
-        totalIncome: ctx.totalIncome,
-        totalExpense: ctx.totalExpense,
-        netSavings: ctx.netSavings,
-        savingsRate: ctx.savingsRate,
-        topCategory: ctx.topCat,
-        recentTransactions: transactions.slice(0, 10),
-        budgets
+        userProfile: {
+          fullName: userProfile.fullName,
+          age: userProfile.age,
+          occupation: userProfile.occupation,
+          riskTolerance: userProfile.riskTolerance,
+          investmentHorizon: userProfile.investmentHorizon,
+          primaryGoal: userProfile.primaryGoal,
+          targetGoalAmount: userProfile.targetGoalAmount,
+          targetRetirementAge: userProfile.targetRetirementAge,
+          monthlyIncome: userProfile.monthlyIncome || ctx.totalIncome,
+          monthlyFixedExpenses: userProfile.monthlyFixedExpenses,
+          monthlyEMIs: userProfile.monthlyEMIs,
+          dependents: userProfile.dependents,
+          emergencyFundMonths: userProfile.emergencyFundMonths
+        },
+        liveFinancials: {
+          totalIncome: ctx.totalIncome,
+          totalExpense: ctx.totalExpense,
+          netSavings: ctx.netSavings,
+          savingsRate: ctx.savingsRate,
+          topCategory: ctx.topCat,
+          recentTransactions: transactions.slice(0, 10),
+          budgets
+        }
       });
 
       const prompt = `You are FinMitra AI Assistant, an expert personal finance & wealth management adviser.
 
-User's Live Financial Context:
+User's Profile & Live Financial Context:
 ${contextData}
 
 User Question: "${message}"
 
 Instructions:
-1. Answer ANY financial question (SIPs, investments, savings goals, EMI, tax, budgets, loans, insurance, spending analysis) with high accuracy.
-2. Always incorporate the user's REAL financial data (Income: ₹${ctx.totalIncome}, Expenses: ₹${ctx.totalExpense}, Net Savings: ₹${ctx.netSavings}/month) into your response.
-3. If the user asks a saving goal question (e.g. "save 1 lakh in 3 months"), calculate the exact monthly saving needed and compare with their current surplus.
-4. If the question is NOT about finance at all, politely say you specialize only in personal finance.
-5. DO NOT use any markdown formatting (no asterisks *, no hashtags #).
-6. DO NOT use any emojis. Use plain text only. Keep responses concise but comprehensive.`;
+1. Answer ANY financial question (SIPs, investments, savings goals, EMI, tax, budgets, loans, insurance, retirement, portfolio allocation) with high accuracy.
+2. Actively utilize the user's Profile & Goals in your response:
+   - Full Name: ${userProfile.fullName}
+   - Age: ${userProfile.age} (Use standard 100 - age asset allocation: ${Math.max(20, Math.min(85, 100 - userProfile.age))}% Equity / ${100 - Math.max(20, Math.min(85, 100 - userProfile.age))}% Debt)
+   - Risk Tolerance: ${userProfile.riskTolerance}
+   - Primary Goal: ${userProfile.primaryGoal} (Target: ₹${userProfile.targetGoalAmount})
+   - Retirement Target: Age ${userProfile.targetRetirementAge} (${Math.max(1, userProfile.targetRetirementAge - userProfile.age)} years to retirement)
+   - Monthly Income: ₹${userProfile.monthlyIncome || ctx.totalIncome}
+   - Fixed Living Expenses: ₹${userProfile.monthlyFixedExpenses} (Emergency fund target: 6 months = ₹${userProfile.monthlyFixedExpenses * 6})
+   - Existing EMIs: ₹${userProfile.monthlyEMIs} (Debt-To-Income DTI: ${userProfile.monthlyIncome > 0 ? ((userProfile.monthlyEMIs / userProfile.monthlyIncome) * 100).toFixed(1) : '0.0'}%)
+   - Dependents: ${userProfile.dependents}
+3. Always incorporate the user's REAL financial data and profile numbers into your response.
+4. If the user asks a saving goal question (e.g. "save 1 lakh in 3 months"), calculate the exact monthly saving needed and compare with their current surplus.
+5. If the user asks about their profile, goals, asset allocation, or retirement, provide concrete calculations using their profile parameters.
+6. If the question is NOT about finance at all, politely say you specialize only in personal finance.
+7. DO NOT use any markdown formatting (no asterisks *, no hashtags #).
+8. DO NOT use any emojis. Use plain text only. Keep responses concise but comprehensive.`;
 
       let aiResponse = await callGeminiREST(prompt, false);
-
 
       if (aiResponse) {
         return { response: aiResponse, reply: aiResponse };
@@ -462,7 +582,7 @@ Instructions:
     }
 
     // 2. Smart financial advisor fallback
-    const reply = smartFinancialAdvisor(message, ctx);
+    const reply = smartFinancialAdvisor(message, ctx, userProfile);
     return { response: reply, reply };
   },
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function TopHeader() {
+export default function TopHeader({ onNavigateTab }) {
   const { user, logout } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
 
@@ -40,9 +40,13 @@ export default function TopHeader() {
             <span className="material-symbols-outlined text-[22px]">notifications</span>
           </button>
           
-          <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container overflow-hidden border border-outline-variant flex items-center justify-center font-bold text-sm">
+          <button 
+            onClick={() => onNavigateTab && onNavigateTab('profile')}
+            className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container overflow-hidden border border-outline-variant flex items-center justify-center font-bold text-sm cursor-pointer hover:ring-2 hover:ring-secondary transition-all"
+            title="View User Profile & Financial Goals"
+          >
             {user?.name ? user.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U')}
-          </div>
+          </button>
 
           <button 
             onClick={logout} 

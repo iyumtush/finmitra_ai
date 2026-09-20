@@ -6,6 +6,7 @@ import DashboardView from '../views/DashboardView';
 import TransactionsView from '../views/TransactionsView';
 import BudgetView from '../views/BudgetView';
 import AIInsightView from '../views/AIInsightView';
+import ProfileView from '../views/ProfileView';
 import OnboardingModal from '../components/onboarding/OnboardingModal';
 import { useAuth } from '../context/AuthContext';
 
@@ -44,7 +45,7 @@ export default function DashboardPage() {
 
       {/* Main App Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden pb-16 md:pb-0">
-        <TopHeader />
+        <TopHeader onNavigateTab={(tab) => setActiveTab(tab)} />
 
         <div className="flex-1 overflow-y-auto">
           {activeTab === 'dashboard' && (
@@ -61,6 +62,10 @@ export default function DashboardPage() {
 
           {activeTab === 'insights' && (
             <AIInsightView />
+          )}
+
+          {activeTab === 'profile' && (
+            <ProfileView onNavigateTab={(tab) => setActiveTab(tab)} />
           )}
         </div>
       </div>
