@@ -22,3 +22,10 @@ Thumbs.db
 # logs
 *.log
 npm-debug.log*
+
+# Python & Build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.pdf
+target/
