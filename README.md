@@ -16,6 +16,10 @@
   <a href="#-contact--hire-me"><img src="https://img.shields.io/badge/Status-Open%20to%20Hire%20%F0%9F%9A%80-orange?style=for-the-badge" alt="Hiring"></a>
 </p>
 
+<p align="center">
+  ☕ <strong>Enterprise Java Backend Available:</strong> Check out the companion <a href="https://github.com/iyumtush/finmitra-backend"><strong>finmitra-backend (Spring Boot 3 + Spring Security + JJWT)</strong></a>.
+</p>
+
 ---
 
 ## 📌 Table of Contents
