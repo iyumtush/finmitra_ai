@@ -43,7 +43,7 @@ const callGeminiREST = async (prompt, isJson = false, base64Image = null, mimeTy
   const keys = getGeminiKeys();
   if (!keys.length) return null;
 
-  const models = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-3.5-flash'];
+  const models = ['gemini-3.6-flash', 'gemini-1.5-flash'];
   let lastError = null;
 
   // Try each API key in sequence
@@ -508,6 +508,23 @@ Respond ONLY with a perfectly formatted JSON object containing EXACTLY these key
   },
 
   sendMessage: async (message) => {
+    // 1. Try Java Backend first (API keys stay private on server, 100% hidden from Network tab)
+    try {
+      const backendRes = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message ? message.trim() : '' })
+      });
+      if (backendRes.ok) {
+        const data = await backendRes.json();
+        if (data && data.reply) {
+          return { response: data.reply, reply: data.reply };
+        }
+      }
+    } catch (backendErr) {
+      console.warn('Backend /api/ai/chat unreachable, using client fallback:', backendErr);
+    }
+
     let transactions = [];
     let budgets = [];
     let userProfile = null;
@@ -628,6 +645,30 @@ Return ONLY a valid JSON object matching this structure:
 
 Format date strictly as YYYY-MM-DD (e.g. "2024-08-16").
 Do not wrap in extra explanation. Return valid JSON only.`;
+
+    // 1. Try Java Backend first (API keys stay private on server, 100% hidden from Network tab)
+    try {
+      const backendRes = await fetch('/api/ai/parse-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64Image, mimeType: mimeType || 'image/jpeg' })
+      });
+      if (backendRes.ok) {
+        const data = await backendRes.json();
+        if (data && (data.merchant || data.amount !== undefined)) {
+          return {
+            merchant: data.merchant || 'Store / Merchant',
+            note: data.note || data.merchant || 'Receipt Expense',
+            amount: parseFloat(data.amount) || 0,
+            category: data.category || 'Food',
+            date: data.date || new Date().toISOString().split('T')[0],
+            type: (data.type || 'EXPENSE').toUpperCase()
+          };
+        }
+      }
+    } catch (backendErr) {
+      console.warn('Backend /api/ai/parse-receipt unreachable, using client fallback:', backendErr);
+    }
 
     try {
       let aiResponse = await callGeminiREST(prompt, true, base64Image, mimeType);
