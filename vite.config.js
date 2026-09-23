@@ -9,7 +9,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://finmitra-backend-2bts.onrender.com',
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8085',
         changeOrigin: true,
         secure: false,
       }
