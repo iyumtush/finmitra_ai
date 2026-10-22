@@ -1,58 +1,76 @@
-import { supabase } from '../supabaseClient';
+/**
+ * FinMitra Budget API (Java Spring Boot REST Connector)
+ * Calls /api/budgets with Bearer JWT Authentication.
+ */
+
 import { transactionApi } from './transactionApi';
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('finmitra_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
 
 export const budgetApi = {
   getBudgets: async () => {
-    const { data, error } = await supabase
-      .from('budgets')
-      .select('*');
+    let budgets = [];
+    try {
+      const res = await fetch('/api/budgets', {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        budgets = await res.json();
+      }
+    } catch (err) {
+      console.warn('Failed to fetch budgets from backend API:', err);
+    }
 
-    if (error) throw error;
-    
-    // Fetch transactions to calculate spent amounts dynamically
+    // Fetch transactions to compute spent amounts per category
     let transactions = [];
     try {
       transactions = await transactionApi.getTransactions();
-    } catch(e) {
-      console.warn("Failed to fetch transactions for budget calculation", e);
+    } catch (e) {
+      console.warn('Failed to fetch transactions for budget calculation:', e);
     }
-    
-    // Sum expenses per category
+
     const spentPerCategory = {};
-    transactions.forEach(t => {
+    transactions.forEach((t) => {
       if (t.type === 'EXPENSE') {
         const cat = t.category;
         spentPerCategory[cat] = (spentPerCategory[cat] || 0) + Number(t.amount || 0);
       }
     });
 
-    return (data || []).map(b => ({
+    return (Array.isArray(budgets) ? budgets : []).map((b) => ({
       ...b,
-      limitAmount: b.limit_amount,
-      spentAmount: spentPerCategory[b.category] || 0
+      limitAmount: b.limitAmount !== undefined ? b.limitAmount : b.limit_amount,
+      spentAmount: b.spentAmount !== undefined ? b.spentAmount : (spentPerCategory[b.category] || 0)
     }));
   },
 
   setBudget: async (budgetData) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    const body = {
+      category: budgetData.category,
+      limitAmount: parseFloat(budgetData.limitAmount || budgetData.amount)
+    };
 
-    const { data, error } = await supabase
-      .from('budgets')
-      .upsert([
-        {
-          user_id: user.id,
-          category: budgetData.category,
-          limit_amount: budgetData.limitAmount
-        }
-      ], { onConflict: 'user_id, category' })
-      .select()
-      .single();
+    const res = await fetch('/api/budgets', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(body)
+    });
 
-    if (error) throw error;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to save budget');
+    }
+
+    const data = await res.json();
     return {
       ...data,
-      limitAmount: data.limit_amount
+      limitAmount: data.limitAmount !== undefined ? data.limitAmount : data.limit_amount
     };
   }
 };

@@ -1,84 +1,39 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { loginUser, signupUser, getStoredToken, getStoredUser } from '../api/authApi';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(() => getStoredToken());
+  const [user, setUser] = useState(() => getStoredUser());
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const isSigningUpRef = useRef(false);
 
+  // Sync token and user if changed
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setLoading(false);
-      return;
-    }
-
-    // 1. Fetch initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!isSigningUpRef.current) {
-        setSession(session);
-        if (session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email,
-            name: session.user.user_metadata?.name || session.user.email.split('@')[0]
-          });
-        }
-      }
-      setLoading(false);
-    }).catch(() => setLoading(false));
-
-    // 2. Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Ignore auth state changes while user registration is in progress
-      if (isSigningUpRef.current) {
-        return;
-      }
-
-      setSession(session);
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          name: session.user.user_metadata?.name || session.user.email.split('@')[0]
-        });
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const activeToken = getStoredToken();
+    const activeUser = getStoredUser();
+    if (activeToken !== token) setToken(activeToken);
+    if (JSON.stringify(activeUser) !== JSON.stringify(user)) setUser(activeUser);
   }, []);
 
   const login = async (email, password) => {
-    if (!isSupabaseConfigured()) {
-      const msg = 'Supabase environment variables (VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY) are missing on Vercel. Please add them in Vercel Settings -> Environment Variables and redeploy.';
-      setError(msg);
-      return { success: false, error: msg };
-    }
-
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const data = await loginUser(email, password);
+      // Java backend returns: { accessToken, tokenType, user: { id, name, email } }
+      const accessToken = data.accessToken;
+      const userData = data.user || {
         email: email.trim().toLowerCase(),
-        password,
-      });
-
-      if (error) throw error;
-
-      const userData = {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.user_metadata?.name || data.user.email.split('@')[0]
+        name: email.split('@')[0]
       };
 
+      localStorage.setItem('finmitra_token', accessToken);
+      localStorage.setItem('finmitra_user', JSON.stringify(userData));
+
+      setToken(accessToken);
       setUser(userData);
-      setSession(data.session);
       return { success: true };
     } catch (err) {
       const msg = err.message || 'Invalid email or password';
@@ -90,80 +45,49 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signup = async (name, email, password) => {
-    if (!isSupabaseConfigured()) {
-      const msg = 'Supabase environment variables (VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY) are missing on Vercel. Please add them in Vercel Settings -> Environment Variables and redeploy.';
-      setError(msg);
-      return { success: false, error: msg };
-    }
-
     setLoading(true);
     setError(null);
-    isSigningUpRef.current = true;
-    
-    // Explicitly reset user and session before registration
-    setUser(null);
-    setSession(null);
-
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          data: { name: name.trim() }
-        }
-      });
-
-      if (error) throw error;
-
-      // Force sign out immediately if Supabase created a session
-      await supabase.auth.signOut().catch(() => {});
-
-      // Clear any stored Supabase auth tokens from localStorage
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith('sb-') || key.includes('auth-token'))) {
-            localStorage.removeItem(key);
-          }
-        }
-      } catch (e) {
-        console.error('Error clearing storage:', e);
-      }
-
-      setUser(null);
-      setSession(null);
-
-      // Delay resetting the ref so leftover async state events are absorbed
-      await new Promise(r => setTimeout(r, 400));
-
+      const data = await signupUser(name, email, password);
       return {
         success: true,
         loggedIn: false,
         requiresSignIn: true,
-        message: 'Account created successfully! Please sign in with your email and password.'
+        message: data.message || 'Account created successfully! Please sign in with your email and password.'
       };
     } catch (err) {
       const msg = err.message || 'Signup failed. Please try again.';
       setError(msg);
       return { success: false, error: msg };
     } finally {
-      isSigningUpRef.current = false;
       setLoading(false);
     }
   };
 
-  const logout = async () => {
-    if (isSupabaseConfigured()) {
-      await supabase.auth.signOut();
-    }
+  const logout = () => {
+    localStorage.removeItem('finmitra_token');
+    localStorage.removeItem('finmitra_user');
+    setToken(null);
     setUser(null);
-    setSession(null);
   };
 
-  const token = session?.access_token || null;
+  const session = token ? { access_token: token, user } : null;
 
   return (
-    <AuthContext.Provider value={{ user, token, session, loading, error, setError, login, signup, logout, isConfigured: isSupabaseConfigured() }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        session,
+        loading,
+        error,
+        setError,
+        login,
+        signup,
+        logout,
+        isConfigured: true
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

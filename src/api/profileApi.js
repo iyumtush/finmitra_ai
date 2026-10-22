@@ -1,6 +1,6 @@
 /**
  * FinMitra User Profile API
- * Manages user financial profile state, persistence, and AI context synchronization.
+ * Manages user financial profile state, local persistence, and Java backend sync.
  */
 
 const EMPTY_PROFILE = {
@@ -21,10 +21,15 @@ const EMPTY_PROFILE = {
   isProfileCompleted: false
 };
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('finmitra_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
+
 export const profileApi = {
-  /**
-   * Check if a specific user has completed their profile
-   */
   isProfileCompleted: (userEmail = null) => {
     try {
       if (!userEmail) return false;
@@ -40,11 +45,6 @@ export const profileApi = {
     return false;
   },
 
-  /**
-   * Get the current user's profile.
-   * If a user hasn't filled a profile yet, returns an uncompleted profile template
-   * (never returns dummy hardcoded figures for new users).
-   */
   getUserProfile: (userEmail = null) => {
     try {
       const email = userEmail ? userEmail.trim().toLowerCase() : null;
@@ -68,18 +68,15 @@ export const profileApi = {
     return { ...EMPTY_PROFILE };
   },
 
-  /**
-   * Save and persist updated user profile
-   */
   saveUserProfile: (profileData, userEmail = null) => {
     try {
       const email = userEmail ? userEmail.trim().toLowerCase() : null;
-      const merged = { 
-        ...EMPTY_PROFILE, 
-        ...profileData, 
-        isProfileCompleted: true 
+      const merged = {
+        ...EMPTY_PROFILE,
+        ...profileData,
+        isProfileCompleted: true
       };
-      
+
       if (email) {
         const key = `finmitra_profile_${email}`;
         localStorage.setItem(key, JSON.stringify(merged));
@@ -87,8 +84,18 @@ export const profileApi = {
         localStorage.setItem('finmitra_profile_guest', JSON.stringify(merged));
       }
 
-      // Also set generic key so background AI services have a fallback
       localStorage.setItem('finmitra_profile_current', JSON.stringify(merged));
+
+      // Asynchronously sync with Java backend if token exists
+      const token = localStorage.getItem('finmitra_token');
+      if (token) {
+        fetch('/api/profile', {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(merged)
+        }).catch(e => console.warn('Backend profile sync skipped:', e.message));
+      }
+
       return merged;
     } catch (err) {
       console.error('Error saving profile:', err);
@@ -96,8 +103,5 @@ export const profileApi = {
     }
   },
 
-  /**
-   * Get empty template configuration
-   */
   getEmptyProfile: () => ({ ...EMPTY_PROFILE })
 };

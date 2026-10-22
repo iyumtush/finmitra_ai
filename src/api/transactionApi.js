@@ -1,62 +1,88 @@
-import { supabase } from '../supabaseClient';
+/**
+ * FinMitra Transaction API (Java Spring Boot REST Connector)
+ * Calls /api/transactions with Bearer JWT Authentication.
+ */
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('finmitra_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
 
 export const transactionApi = {
   getTransactions: async () => {
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .order('date', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    try {
+      const res = await fetch('/api/transactions', {
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return [];
+        throw new Error(`Failed to fetch transactions: ${res.statusText}`);
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.warn('Error fetching transactions from backend:', err);
+      return [];
+    }
   },
 
   createTransaction: async (transactionData) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    const body = {
+      amount: parseFloat(transactionData.amount),
+      category: transactionData.category || 'Other',
+      note: transactionData.note || transactionData.merchant || transactionData.description || 'Expense',
+      type: (transactionData.type || 'EXPENSE').toUpperCase(),
+      date: transactionData.date || new Date().toISOString().split('T')[0]
+    };
 
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert([{
-        user_id: user.id,
-        amount: parseFloat(transactionData.amount),
-        category: transactionData.category || 'Other',
-        note: transactionData.note || transactionData.merchant || transactionData.description || 'Expense',
-        type: (transactionData.type || 'EXPENSE').toUpperCase(),
-        date: transactionData.date || new Date().toISOString().split('T')[0]
-      }])
-      .select()
-      .single();
+    const res = await fetch('/api/transactions', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(body)
+    });
 
-    if (error) throw error;
-    return data;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to create transaction');
+    }
+    return await res.json();
   },
 
   updateTransaction: async (id, transactionData) => {
-    const { data, error } = await supabase
-      .from('transactions')
-      .update({
-        amount: transactionData.amount,
-        category: transactionData.category,
-        note: transactionData.note,
-        type: transactionData.type,
-        date: transactionData.date
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    const body = {
+      amount: parseFloat(transactionData.amount),
+      category: transactionData.category || 'Other',
+      note: transactionData.note || transactionData.merchant || transactionData.description || 'Expense',
+      type: (transactionData.type || 'EXPENSE').toUpperCase(),
+      date: transactionData.date || new Date().toISOString().split('T')[0]
+    };
 
-    if (error) throw error;
-    return data;
+    const res = await fetch(`/api/transactions/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to update transaction');
+    }
+    return await res.json();
   },
 
   deleteTransaction: async (id) => {
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', id);
+    const res = await fetch(`/api/transactions/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
 
-    if (error) throw error;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to delete transaction');
+    }
     return { success: true };
   }
 };

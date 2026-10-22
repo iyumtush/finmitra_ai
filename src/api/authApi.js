@@ -1,30 +1,52 @@
-import { supabase } from '../supabaseClient';
+/**
+ * FinMitra Auth API (Java Spring Boot REST Connector)
+ * Replaces Supabase Auth with Enterprise JWT Authentication.
+ */
 
 export const signupUser = async (name, email, password) => {
-  const { data, error } = await supabase.auth.signUp({
-    email: email.trim().toLowerCase(),
-    password,
-    options: {
-      data: { name: name.trim() }
-    }
+  const res = await fetch('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password
+    })
   });
-  if (error) throw error;
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || data.error || 'Signup failed');
+  }
   return data;
 };
 
 export const loginUser = async (email, password) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.trim().toLowerCase(),
-    password,
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+      password
+    })
   });
-  if (error) throw error;
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || data.error || 'Invalid email or password');
+  }
   return data;
 };
 
-export const getProtectedProfile = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw error;
-  return user;
+export const getStoredToken = () => {
+  return localStorage.getItem('finmitra_token') || null;
 };
 
-export default supabase;
+export const getStoredUser = () => {
+  try {
+    const raw = localStorage.getItem('finmitra_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};

@@ -1,42 +1,58 @@
-import { supabase } from '../supabaseClient';
+/**
+ * FinMitra Category API (Java Spring Boot REST Connector)
+ * Calls /api/categories with Bearer JWT Authentication.
+ */
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('finmitra_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
 
 export const categoryApi = {
   getCategories: async () => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*');
-
-    if (error) throw error;
-    return data || [];
+    try {
+      const res = await fetch('/api/categories', {
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.warn('Failed to fetch categories:', err);
+      return [];
+    }
   },
 
   createCategory: async (categoryData) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    const res = await fetch('/api/categories', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        name: categoryData.name,
+        color: categoryData.color || '#6366f1'
+      })
+    });
 
-    const { data, error } = await supabase
-      .from('categories')
-      .insert([
-        {
-          user_id: user.id,
-          name: categoryData.name,
-          color: categoryData.color || '#6366f1'
-        }
-      ])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to create category');
+    }
+    return await res.json();
   },
 
   deleteCategory: async (id) => {
-    const { error } = await supabase
-      .from('categories')
-      .delete()
-      .eq('id', id);
+    const res = await fetch(`/api/categories/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
 
-    if (error) throw error;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to delete category');
+    }
     return { success: true };
   }
 };

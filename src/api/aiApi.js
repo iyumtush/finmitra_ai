@@ -510,9 +510,13 @@ Respond ONLY with a perfectly formatted JSON object containing EXACTLY these key
   sendMessage: async (message) => {
     // 1. Try Java Backend first (API keys stay private on server, 100% hidden from Network tab)
     try {
+      const token = localStorage.getItem('finmitra_token');
       const backendRes = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ message: message ? message.trim() : '' })
       });
       if (backendRes.ok) {
@@ -648,9 +652,13 @@ Do not wrap in extra explanation. Return valid JSON only.`;
 
     // 1. Try Java Backend first (API keys stay private on server, 100% hidden from Network tab)
     try {
+      const token = localStorage.getItem('finmitra_token');
       const backendRes = await fetch('/api/ai/parse-receipt', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ base64Image, mimeType: mimeType || 'image/jpeg' })
       });
       if (backendRes.ok) {
